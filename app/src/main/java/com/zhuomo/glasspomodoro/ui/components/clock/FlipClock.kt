@@ -42,7 +42,7 @@ import com.zhuomo.glasspomodoro.ui.theme.currentColorPreset
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
+import java.time.format.TextStyle as JTextStyle
 import java.util.Locale
 
 @Composable
@@ -70,7 +70,7 @@ fun FlipClock(
                 FlipTextGroup(text = dateStr, primary = primary, secondary = secondary, fontSize = 28, spacing = 8)
             }
             if (settings.showWeekday) {
-                val weekStr = dateTime.dayOfWeek.getDisplayName(TextStyle.FULL, if (isZh) Locale.CHINESE else Locale.ENGLISH)
+                val weekStr = dateTime.dayOfWeek.getDisplayName(JTextStyle.FULL, if (isZh) Locale.CHINESE else Locale.ENGLISH)
                 Spacer(Modifier.width(12.dp))
                 FlipTextGroup(text = weekStr, primary = primary, secondary = secondary, fontSize = 28, spacing = 6)
             }

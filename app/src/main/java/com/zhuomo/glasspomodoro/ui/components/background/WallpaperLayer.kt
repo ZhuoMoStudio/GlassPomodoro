@@ -85,6 +85,7 @@ fun WallpaperLayer(
                     )
                 }
             }
+            WallpaperSource.ALBUM_ART -> { }
             WallpaperSource.NONE -> {
                 // 无壁纸，纯色背景
             }

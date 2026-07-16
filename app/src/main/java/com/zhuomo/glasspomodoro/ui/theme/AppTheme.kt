@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import com.zhuomo.glasspomodoro.model.ColorPreset
 import com.zhuomo.glasspomodoro.model.ColorPresets
+import com.zhuomo.glasspomodoro.model.ThemeSettings
 import com.zhuomo.glasspomodoro.data.repository.SettingsRepository
 
 // ===== 动态获取当前配色 =====

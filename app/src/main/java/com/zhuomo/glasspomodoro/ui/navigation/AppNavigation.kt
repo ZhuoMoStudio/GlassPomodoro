@@ -109,7 +109,7 @@ private fun BottomNavBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .align(Alignment.BottomCenter)
+            .align(androidx.compose.ui.Alignment.BottomCenter)
             .padding(16.dp)
             .clip(RoundedCornerShape(24.dp))
             .background(Color(0x22000000))

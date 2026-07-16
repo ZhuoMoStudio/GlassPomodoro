@@ -228,7 +228,7 @@ class AlbumArtColorExtractor {
                 val pg = android.graphics.Color.green(pixel)
                 val pb = android.graphics.Color.blue(pixel)
 
-                var minDist = Float.MAX_VALUE
+                var minDist = Int.MAX_VALUE
                 var bestIdx = 0
                 clusters.forEachIndexed { idx, cluster ->
                     val dr = pr - (if (cluster.count > 0) cluster.r / cluster.count else cluster.r).coerceIn(0, 255)
