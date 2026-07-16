@@ -1,5 +1,6 @@
-import androidx.compose.ui.unit.dp
 package com.zhuomo.glasspomodoro.ui.components.background
+
+import androidx.compose.ui.unit.dp
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
