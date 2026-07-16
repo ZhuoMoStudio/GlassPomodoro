@@ -53,15 +53,13 @@ fun WallpaperLayer(
                         model = bing.fullUrl,
                         contentScale = ContentScale.Crop
                     )
-                    if (painter is androidx.compose.ui.graphics.painter.Painter) {
-                        Image(
-                            painter = painter,
-                            contentDescription = bing.title,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                            alpha = 0.6f
-                        )
-                    }
+                    Image(
+                        painter = painter,
+                        contentDescription = bing.title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        alpha = 0.6f
+                    )
                 }
                 // 加载失败时显示纯色背景
                 if (bingImage == null) {
