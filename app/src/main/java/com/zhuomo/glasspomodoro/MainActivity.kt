@@ -10,50 +10,37 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.zhuomo.glasspomodoro.ui.screens.PomodoroScreen
+import com.zhuomo.glasspomodoro.ui.navigation.AppNavigation
 import com.zhuomo.glasspomodoro.ui.theme.GlassPomodoroTheme
+import com.zhuomo.glasspomodoro.ui.theme.currentColorPreset
+import com.zhuomo.glasspomodoro.viewmodel.MainViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 class MainActivity : ComponentActivity() {
 
-    private val requestPermissionLauncher = registerForActivityResult(
+    private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (isGranted) {
-            // 权限已授予，重启音频检测
-            // ViewModel 会自动处理
-        }
-    }
+    ) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 设置沉浸式全屏（横屏体验）
+        // 全屏沉浸模式
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val controller = WindowInsetsControllerCompat(window, window.decorView)
         controller.hide(WindowInsetsCompat.Type.systemBars())
-        controller.systemBarsBehavior =
-            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
 
         // 请求麦克风权限
-        requestMicrophonePermission()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
 
         setContent {
-            GlassPomodoroTheme {
-                PomodoroScreen()
-            }
-        }
-    }
-
-    private fun requestMicrophonePermission() {
-        when {
-            ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.RECORD_AUDIO
-            ) == PackageManager.PERMISSION_GRANTED -> {
-                // 已授权，无需操作
-            }
-            else -> {
-                requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            val mainVM: MainViewModel = viewModel()
+            val preset = currentColorPreset(mainVM.settingsRepo)
+            GlassPomodoroTheme(preset = preset, darkTheme = true) {
+                AppNavigation(mainViewModel = mainVM)
             }
         }
     }

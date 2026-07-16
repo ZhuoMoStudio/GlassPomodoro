@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">玻璃番茄钟</string>
+    <string name="clock_mode">时钟</string>
+    <string name="focus_mode">专注</string>
+    <string name="settings">设置</string>
+    <string name="start">开始</string>
+    <string name="pause">暂停</string>
+    <string name="reset">重置</string>
+    <string name="focus">专注</string>
+    <string name="short_break">短休息</string>
+    <string name="long_break">长休息</string>
+    <string name="sessions_completed">已完成 %d 轮</string>
+    <string name="mic_permission">需要麦克风权限以驱动声波动效</string>
+    <string name="show_seconds">显示秒</string>
+    <string name="show_date">显示日期</string>
+    <string name="show_weekday">显示星期</string>
+    <string name="show_year">显示年份</string>
+    <string name="time_format_24h">24小时制</string>
+    <string name="wallpaper_none">无</string>
+    <string name="wallpaper_bing">Bing 每日壁纸</string>
+    <string name="wallpaper_local">本地相册</string>
+    <string name="theme_presets">主题配色</string>
+    <string name="language">语言</string>
+</resources>

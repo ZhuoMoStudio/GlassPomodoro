@@ -1,9 +1,7 @@
 package com.zhuomo.glasspomodoro.viewmodel
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.zhuomo.glasspomodoro.audio.AudioAmplitudeDetector
 import com.zhuomo.glasspomodoro.model.PomodoroState
 import com.zhuomo.glasspomodoro.model.SessionType
 import com.zhuomo.glasspomodoro.model.TimerState
@@ -14,66 +12,34 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class PomodoroViewModel(application: Application) : AndroidViewModel(application) {
+class PomodoroViewModel : ViewModel() {
 
     private val _state = MutableStateFlow(PomodoroState())
     val state: StateFlow<PomodoroState> = _state.asStateFlow()
 
-    private val audioDetector = AudioAmplitudeDetector(application)
     private var timerJob: Job? = null
-    private var audioJob: Job? = null
 
-    init {
-        checkPermission()
-        startAudioListening()
-    }
-
-    private fun checkPermission() {
-        _state.value = _state.value.copy(
-            hasMicrophonePermission = audioDetector.hasPermission()
-        )
-    }
-
-    fun onPermissionGranted() {
-        _state.value = _state.value.copy(hasMicrophonePermission = true)
-        restartAudio()
-    }
-
-    // ===== 计时器控制 =====
+    fun updateAmplitude(value: Float) { _state.value = _state.value.copy(amplitude = value) }
+    fun setMicPermission(granted: Boolean) { _state.value = _state.value.copy(hasMicPermission = granted) }
 
     fun startTimer() {
-        if (_state.value.timerState == TimerState.IDLE ||
-            _state.value.timerState == TimerState.FINISHED
-        ) {
-            // 重置为新会话
-            val totalSecs = _state.value.sessionType.defaultMinutes * 60
-            _state.value = _state.value.copy(
-                timerState = TimerState.RUNNING,
-                remainingSeconds = totalSecs,
-                elapsedSeconds = 0,
-                totalSeconds = totalSecs
-            )
-        } else if (_state.value.timerState == TimerState.PAUSED) {
-            _state.value = _state.value.copy(timerState = TimerState.RUNNING)
+        val current = _state.value
+        if (current.timerState == TimerState.IDLE || current.timerState == TimerState.FINISHED) {
+            val total = current.sessionType.defaultMinutes * 60
+            _state.value = current.copy(timerState = TimerState.RUNNING, remainingSeconds = total, elapsedSeconds = 0, totalSeconds = total)
+        } else if (current.timerState == TimerState.PAUSED) {
+            _state.value = current.copy(timerState = TimerState.RUNNING)
         }
-
-        startAudioListening()
         timerJob?.cancel()
         timerJob = viewModelScope.launch {
-            while (_state.value.timerState == TimerState.RUNNING &&
-                _state.value.remainingSeconds > 0
-            ) {
+            while (_state.value.timerState == TimerState.RUNNING && _state.value.remainingSeconds > 0) {
                 delay(1000L)
-                val current = _state.value
-                _state.value = current.copy(
-                    remainingSeconds = current.remainingSeconds - 1,
-                    elapsedSeconds = current.elapsedSeconds + 1
+                _state.value = _state.value.copy(
+                    remainingSeconds = _state.value.remainingSeconds - 1,
+                    elapsedSeconds = _state.value.elapsedSeconds + 1
                 )
             }
-            // 计时结束
-            if (_state.value.remainingSeconds <= 0) {
-                onTimerFinished()
-            }
+            if (_state.value.remainingSeconds <= 0) onTimerFinished()
         }
     }
 
@@ -84,85 +50,39 @@ class PomodoroViewModel(application: Application) : AndroidViewModel(application
 
     fun resetTimer() {
         timerJob?.cancel()
-        val totalSecs = _state.value.sessionType.defaultMinutes * 60
-        _state.value = _state.value.copy(
-            timerState = TimerState.IDLE,
-            remainingSeconds = totalSecs,
-            elapsedSeconds = 0,
-            totalSeconds = totalSecs
-        )
+        val total = _state.value.sessionType.defaultMinutes * 60
+        _state.value = _state.value.copy(timerState = TimerState.IDLE, remainingSeconds = total, elapsedSeconds = 0, totalSeconds = total)
     }
-
-    private fun onTimerFinished() {
-        val current = _state.value
-        var completed = current.completedSessions
-        var nextSession = current.sessionType
-        var nextSessionNum = current.currentSessionNumber
-
-        if (current.isWorkSession) {
-            // 专注完成
-            completed++
-            nextSessionNum++
-
-            // 判断是短休息还是长休息
-            nextSession = if (nextSessionNum > PomodoroState.SESSIONS_BEFORE_LONG_BREAK) {
-                nextSessionNum = 1
-                SessionType.LONG_BREAK
-            } else {
-                SessionType.SHORT_BREAK
-            }
-        } else {
-            // 休息完成 -> 进入下一个专注
-            nextSession = SessionType.WORK
-        }
-
-        val totalSecs = nextSession.defaultMinutes * 60
-        _state.value = current.copy(
-            timerState = TimerState.FINISHED,
-            sessionType = nextSession,
-            remainingSeconds = totalSecs,
-            elapsedSeconds = 0,
-            totalSeconds = totalSecs,
-            completedSessions = completed,
-            currentSessionNumber = nextSessionNum
-        )
-    }
-
-    // ===== 音频检测 =====
-
-    private fun startAudioListening() {
-        audioJob?.cancel()
-        audioJob = viewModelScope.launch {
-            audioDetector.startListening().collect { amplitude ->
-                _state.value = _state.value.copy(amplitude = amplitude)
-            }
-        }
-    }
-
-    private fun restartAudio() {
-        audioDetector.stop()
-        startAudioListening()
-    }
-
-    // ===== 会话切换 =====
 
     fun switchSession(type: SessionType) {
         if (_state.value.timerState == TimerState.RUNNING) return
         timerJob?.cancel()
-        val totalSecs = type.defaultMinutes * 60
-        _state.value = _state.value.copy(
-            sessionType = type,
-            timerState = TimerState.IDLE,
-            remainingSeconds = totalSecs,
-            elapsedSeconds = 0,
-            totalSeconds = totalSecs
+        val total = type.defaultMinutes * 60
+        _state.value = _state.value.copy(sessionType = type, timerState = TimerState.IDLE, remainingSeconds = total, elapsedSeconds = 0, totalSeconds = total)
+    }
+
+    private fun onTimerFinished() {
+        val cur = _state.value
+        var completed = cur.completedSessions
+        var next = cur.sessionType
+        var num = cur.currentSessionNumber
+        if (cur.isWorkSession) {
+            completed++
+            num++
+            next = if (num > PomodoroState.SESSIONS_BEFORE_LONG_BREAK) {
+                num = 1; SessionType.LONG_BREAK
+            } else SessionType.SHORT_BREAK
+        } else { next = SessionType.WORK }
+        val total = next.defaultMinutes * 60
+        _state.value = cur.copy(
+            timerState = TimerState.FINISHED, sessionType = next,
+            remainingSeconds = total, totalSeconds = total,
+            completedSessions = completed, currentSessionNumber = num
         )
     }
 
     override fun onCleared() {
-        super.onCleared()
         timerJob?.cancel()
-        audioJob?.cancel()
-        audioDetector.stop()
+        super.onCleared()
     }
 }
