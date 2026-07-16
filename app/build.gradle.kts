@@ -23,9 +23,11 @@ android {
         val envKeyAlias = System.getenv("KEY_ALIAS")
         val envKeyPass = System.getenv("KEY_PASSWORD")
 
-        // 仅在所有签名环境变量都存在时创建 release 签名配置
+        // 仅在所有签名环境变量都存在且非空时创建 release 签名配置
         // 这些变量由 GitHub Secrets 通过 Actions 工作流注入
-        if (envKeystorePath != null && envStorePass != null && envKeyAlias != null && envKeyPass != null) {
+        // 注意：System.getenv() 对空环境变量返回空字符串 "" 而非 null
+        if (!envKeystorePath.isNullOrBlank() && !envStorePass.isNullOrBlank()
+            && !envKeyAlias.isNullOrBlank() && !envKeyPass.isNullOrBlank()) {
             create("release") {
                 storeFile = file(envKeystorePath)
                 storePassword = envStorePass

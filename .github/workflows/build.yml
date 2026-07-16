@@ -54,7 +54,9 @@ jobs:
             echo "KEYSTORE_PATH=$HOME/keystore.jks" >> $GITHUB_ENV
             echo "✅ 密钥库已从 Secrets 安全加载"
           else
-            echo "⚠️ 未设置 KEYSTORE_FILE Secret，Release 将使用 debug 签名"
+            echo "⚠️ 未设置 KEYSTORE_FILE Secret，跳过签名"
+            # 设置空值以便 Gradle 判断跳过签名
+            echo "KEYSTORE_PATH=" >> $GITHUB_ENV
           fi
 
       - name: Build Debug APK
