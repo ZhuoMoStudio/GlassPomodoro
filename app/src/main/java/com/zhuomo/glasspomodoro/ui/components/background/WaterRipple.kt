@@ -1,7 +1,5 @@
 package com.zhuomo.glasspomodoro.ui.components.background
 
-import androidx.compose.ui.unit.dp
-
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.infiniteRepeatable
@@ -17,13 +15,20 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
- * 水波扩散 + 声波叠加效果
- * 由音频振幅驱动的动态水面波纹
+ * 水波纹动效 v2.0 — 音叉入水式的同心圆涟漪
+ *
+ * 声音越大（amplitude 越大）：
+ * - 涟漪半径越大
+ * - 涟漪扩散速度越快
+ * - 涟漪透明度越高
+ * - 水面波动幅度越大
  */
 @Composable
 fun WaterRippleBackground(
@@ -32,97 +37,116 @@ fun WaterRippleBackground(
     isActive: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    val ripplePhase1 = remember { Animatable(0f) }
-    val ripplePhase2 = remember { Animatable(0f) }
+    // 多个独立的涟漪相位
+    val phases = remember { List(5) { Animatable(it * 0.2f) } }
 
-    LaunchedEffect(Unit) {
-        ripplePhase1.animateTo(1f, infiniteRepeatable(animation = tween(3000, easing = LinearEasing)))
-    }
-    LaunchedEffect(Unit) {
-        ripplePhase2.animateTo(1f, infiniteRepeatable(animation = tween(5000, easing = LinearEasing)))
+    phases.forEachIndexed { i, phase ->
+        LaunchedEffect(Unit) {
+            phase.animateTo(1f, infiniteRepeatable(
+                animation = tween(2000 + i * 600, easing = LinearEasing)))
+        }
     }
 
     Canvas(modifier = modifier.fillMaxSize()) {
         val w = size.width
         val h = size.height
         val cx = w / 2
-        val cy = h / 2
+        val cy = h * 0.55f // 涟漪中心偏下
 
-        // 1. 声波可视化 - 底部波浪
-        if (isActive && amplitude > 0.01f) {
-            val wavePath = Path()
-            wavePath.moveTo(0f, h)
-            val baseAmp = amplitude * h * 0.08f
-            for (x in 0..w.toInt() step 2) {
-                val y = h - baseAmp * 2 -
-                        sin((x.toFloat() / w * 4f * PI.toFloat() + ripplePhase1.value * 2f * PI.toFloat())).toFloat() * baseAmp
-                wavePath.lineTo(x.toFloat(), y)
+        // 音频强度：安静时 0.03（微弱涟漪），最大时 1.0（明显波动）
+        val intensity = if (isActive) amplitude.coerceIn(0.02f, 1f) else 0.02f
+        val maxRadius = sqrt(w * w + h * h).toFloat() * 0.55f
+
+        // =======================
+        // 1. 同心圆涟漪（音叉效果）
+        // =======================
+        for (i in phases.indices) {
+            val phaseValue = phases[i].value
+            // 涟漪从中心向外扩散
+            val ringRadius = maxRadius * 0.15f + maxRadius * 0.7f * phaseValue * (1f + intensity * 0.4f)
+            // 音频越大，涟漪越宽
+            val ringWidth = (2f + intensity * 6f).dp.toPx()
+            // 透明度：从中心向外逐渐减弱
+            val alpha = (0.25f * (1f - phaseValue) * (0.5f + intensity * 0.7f))
+                .coerceIn(0f, 0.4f)
+
+            if (ringRadius > 0 && ringRadius < maxRadius * 1.1f) {
+                drawCircle(
+                    color = accentColor.copy(alpha = alpha),
+                    radius = ringRadius,
+                    center = Offset(cx, cy),
+                    style = Stroke(width = ringWidth)
+                )
             }
-            wavePath.lineTo(w, h)
-            wavePath.close()
+        }
 
-            drawPath(
-                path = wavePath,
-                brush = Brush.horizontalGradient(
-                    colors = listOf(
-                        accentColor.copy(alpha = 0f),
-                        accentColor.copy(alpha = 0.15f + amplitude * 0.3f),
-                        accentColor.copy(alpha = 0f)
+        // =======================
+        // 2. 水面波纹（横向正弦波）
+        // =======================
+        if (intensity > 0.03f) {
+            for (rippleLayer in 0..2) {
+                val wavePath = Path()
+                val baseAmp = intensity * h * (0.04f + rippleLayer * 0.015f)
+                val freq = (2f + rippleLayer * 1.3f)
+                val phaseOffset = phases[rippleLayer].value * PI.toFloat() * 2f
+
+                wavePath.moveTo(0f, h)
+                for (x in 0..w.toInt() step 3) {
+                    val nx = x.toFloat() / w
+                    val wave = sin(nx * freq * PI.toFloat() + phaseOffset).toFloat() * baseAmp
+                    val y = h - baseAmp * 1.5f - wave
+                    wavePath.lineTo(x.toFloat(), y.coerceIn(0f, h))
+                }
+                wavePath.lineTo(w, h)
+                wavePath.close()
+
+                drawPath(
+                    path = wavePath,
+                    brush = Brush.horizontalGradient(
+                        0f to Color.Transparent,
+                        0.2f to accentColor.copy(alpha = 0.08f + intensity * 0.12f),
+                        0.5f to accentColor.copy(alpha = 0.15f + intensity * 0.2f),
+                        0.8f to accentColor.copy(alpha = 0.08f + intensity * 0.12f),
+                        1f to Color.Transparent
                     )
                 )
-            )
-
-            // 第二层声波
-            val wavePath2 = Path()
-            wavePath2.moveTo(0f, h)
-            val baseAmp2 = amplitude * h * 0.12f
-            for (x in 0..w.toInt() step 2) {
-                val y = h - baseAmp2 -
-                        cos((x.toFloat() / w * 3f * PI.toFloat() + ripplePhase2.value * 2f * PI.toFloat())).toFloat() * baseAmp2
-                wavePath2.lineTo(x.toFloat(), y)
             }
-            wavePath2.lineTo(w, h)
-            wavePath2.close()
+        }
 
-            drawPath(
-                path = wavePath2,
-                brush = Brush.horizontalGradient(
+        // =======================
+        // 3. 音频脉冲光晕
+        // =======================
+        if (intensity > 0.1f) {
+            val pulseSize = (intensity * 0.35f).coerceIn(0f, 0.35f)
+            drawCircle(
+                brush = Brush.radialGradient(
                     colors = listOf(
-                        accentColor.copy(alpha = 0f),
-                        accentColor.copy(alpha = 0.1f + amplitude * 0.2f),
-                        accentColor.copy(alpha = 0f)
+                        accentColor.copy(alpha = pulseSize),
+                        accentColor.copy(alpha = pulseSize * 0.5f),
+                        Color.Transparent
                     )
-                )
+                ),
+                radius = maxRadius * (0.2f + intensity * 0.5f),
+                center = Offset(cx, cy)
             )
         }
 
-        // 2. 水波涟漪 - 从中心扩散的圆环
-        val rippleRadius1 = (minOf(w, h) * 0.3f * ripplePhase1.value).coerceAtMost(minOf(w, h) * 0.5f)
-        val rippleRadius2 = (minOf(w, h) * 0.4f * ripplePhase2.value).coerceAtMost(minOf(w, h) * 0.5f)
-        val audioBoost = 1f + amplitude * 0.5f
+        // =======================
+        // 4. 散落光点
+        // =======================
+        val particleCount = (intensity * 40).toInt().coerceAtMost(40)
+        for (i in 0 until particleCount) {
+            val angle = (i * 137.508f) % 360f // 黄金角分布
+            val rad = angle * PI.toFloat() / 180f
+            val dist = maxRadius * (0.1f + intensity * 0.6f) * ((i * 0.173f) % 1f)
+            val px = cx + cos(rad) * dist
+            val py = cy + sin(rad) * dist * 0.7f
+            val size = (1f + intensity * 3f).dp.toPx()
 
-        drawCircle(
-            color = accentColor.copy(alpha = (0.08f * (1f - ripplePhase1.value) * audioBoost).coerceIn(0f, 0.15f)),
-            radius = rippleRadius1 * audioBoost,
-            center = Offset(cx, cy),
-            style = Stroke(width = 2.dp.toPx())
-        )
-
-        drawCircle(
-            color = accentColor.copy(alpha = (0.05f * (1f - ripplePhase2.value) * audioBoost).coerceIn(0f, 0.1f)),
-            radius = rippleRadius2 * audioBoost,
-            center = Offset(cx, cy),
-            style = Stroke(width = 1.5.dp.toPx())
-        )
-
-        // 3. 音频脉冲环（振幅越大越明显）
-        if (amplitude > 0.05f) {
-            val pulseRadius = minOf(w, h) * 0.25f * (1f + amplitude * 0.3f)
             drawCircle(
-                color = accentColor.copy(alpha = (amplitude * 0.15f).coerceIn(0f, 0.2f)),
-                radius = pulseRadius,
-                center = Offset(cx, cy),
-                style = Stroke(width = (1f + amplitude * 3f).dp.toPx())
+                color = accentColor.copy(alpha = (0.15f + intensity * 0.25f).coerceIn(0f, 0.4f)),
+                radius = size,
+                center = Offset(px, py.coerceIn(0f, h))
             )
         }
     }

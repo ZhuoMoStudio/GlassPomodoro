@@ -30,11 +30,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.zhuomo.glasspomodoro.data.local.FocusRecordEntity
 import com.zhuomo.glasspomodoro.data.repository.SettingsRepository
 import com.zhuomo.glasspomodoro.model.PomodoroState
 import com.zhuomo.glasspomodoro.model.SessionType
@@ -46,18 +47,19 @@ import com.zhuomo.glasspomodoro.ui.theme.glassCard
 import com.zhuomo.glasspomodoro.viewmodel.PomodoroViewModel
 
 /**
- * 番茄钟模式屏幕（增强版）
+ * 番茄钟模式 v2.0 - 自适应横屏布局，无遮挡按钮
  */
 @Composable
 fun PomodoroScreen(
     viewModel: PomodoroViewModel,
     repository: SettingsRepository,
-    wallpaperSettings: com.zhuomo.glasspomodoro.model.WallpaperSettings = com.zhuomo.glasspomodoro.model.WallpaperSettings(),
-    onSkip: () -> Unit = {},
+    wallpaperSettings: com.zhuomo.glasspomodoro.model.WallpaperSettings,
     isZh: Boolean = true
 ) {
     val state by viewModel.state.collectAsState()
     val preset = currentColorPreset(repository)
+    val config = LocalConfiguration.current
+    val isWide = config.screenWidthDp.toFloat() / config.screenHeightDp.toFloat() > 2f
 
     Box(modifier = Modifier.fillMaxSize()) {
         WallpaperLayer(settings = wallpaperSettings)
@@ -65,97 +67,131 @@ fun PomodoroScreen(
         WaterRippleBackground(amplitude = state.amplitude, accentColor = preset.primary,
             isActive = state.hasMicPermission && state.timerState == TimerState.RUNNING)
 
-        Column(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceEvenly
-        ) {
-            // 标题
-            Text(if (isZh) "🍅 番茄专注" else "🍅 Pomodoro",
-                color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Light)
-
-            // 会话选择
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                SessionType.entries.forEach { type ->
-                    val isSelected = type == state.sessionType
-                    val accent = when(type) { SessionType.WORK -> preset.primary; else -> preset.secondary }
-                    Box(
-                        Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isSelected) accent.copy(alpha = 0.2f) else Color.Transparent)
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(if (isZh) type.labelZh else type.labelEn,
-                                color = if (isSelected) accent else Color.White.copy(alpha = 0.5f),
-                                fontSize = 13.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
-                            Text("${type.defaultMinutes}${if (isZh) "分" else "m"}",
-                                color = if (isSelected) accent.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.3f),
-                                fontSize = 11.sp)
-                        }
-                    }
-                }
-            }
-
-            // 倒计时（大号）
-            Box(
-                modifier = Modifier.size(260.dp).glassCard(130),
-                contentAlignment = Alignment.Center
+        // 横屏自适应布局
+        if (isWide) {
+            // 超宽屏（平板/折叠屏）：左右分栏
+            Row(
+                modifier = Modifier.fillMaxSize().padding(24.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(state.formattedTime, color = Color.White, fontSize = 72.sp,
-                        fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                    Text(if (isZh) state.sessionType.labelZh else state.sessionType.labelEn,
-                        color = if (state.isWorkSession) preset.primary else preset.secondary,
-                        fontSize = 16.sp)
+                Column(horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.weight(0.4f)) {
+                    SessionSelector(state, viewModel, preset, isZh)
+                    Spacer(Modifier.height(16.dp))
+                    TimerCircle(state, preset)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.weight(0.6f)) {
+                    ControlPanel(state, viewModel, preset, isZh)
                 }
             }
-
-            // 已完成
-            Text(if (isZh) "已完成 ${state.completedSessions} 轮" else "${state.completedSessions} sessions done",
-                color = Color.White.copy(alpha = 0.5f), fontSize = 13.sp)
-
-            // 控制按钮
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                ControlButton(icon = Icons.Default.Refresh, onClick = { viewModel.resetTimer() }, color = Color.White.copy(alpha = 0.5f), small = true)
-                Spacer(Modifier.width(24.dp))
-                val isRunning = state.timerState == TimerState.RUNNING
-                ControlButton(
-                    icon = if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    onClick = { if (isRunning) viewModel.pauseTimer() else viewModel.startTimer() },
-                    color = if (isRunning) preset.primary else preset.secondary,
-                    big = true
-                )
-                Spacer(Modifier.width(24.dp))
-                ControlButton(icon = Icons.Default.SkipNext, onClick = { viewModel.resetTimer(); onSkip() },
-                    color = Color.White.copy(alpha = 0.5f), small = true)
+        } else {
+            // 正常横屏：上下布局
+            Column(
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceEvenly
+            ) {
+                SessionSelector(state, viewModel, preset, isZh)
+                TimerCircle(state, preset)
+                ControlPanel(state, viewModel, preset, isZh)
             }
         }
     }
 }
 
 @Composable
-private fun ControlButton(
+private fun SessionSelector(
+    state: PomodoroState,
+    viewModel: PomodoroViewModel,
+    preset: com.zhuomo.glasspomodoro.model.ColorPreset,
+    isZh: Boolean
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        SessionType.entries.forEach { type ->
+            val selected = type == state.sessionType
+            val accent = when (type) { SessionType.WORK -> preset.primary; else -> preset.secondary }
+            Box(
+                Modifier.clip(RoundedCornerShape(10.dp))
+                    .background(if (selected) accent.copy(alpha = 0.2f) else Color.Transparent)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { viewModel.switchSession(type) }
+                    ).padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    if (isZh) "${type.labelZh} ${type.defaultMinutes}分"
+                    else "${type.labelEn} ${type.defaultMinutes}m",
+                    color = if (selected) accent else Color.White.copy(alpha = 0.5f),
+                    fontSize = 13.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimerCircle(state: PomodoroState, preset: com.zhuomo.glasspomodoro.model.ColorPreset) {
+    Box(modifier = Modifier.size(200.dp).glassCard(100), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(state.formattedTime, color = Color.White, fontSize = 56.sp,
+                fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+            Text(if (state.isWorkSession) "FOCUS" else "BREAK",
+                color = if (state.isWorkSession) preset.primary else preset.secondary,
+                fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text("已完成 ${state.completedSessions} 轮",
+                color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp)
+        }
+    }
+}
+
+@Composable
+private fun ControlPanel(
+    state: PomodoroState,
+    viewModel: PomodoroViewModel,
+    preset: com.zhuomo.glasspomodoro.model.ColorPreset,
+    isZh: Boolean
+) {
+    Row(verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        // 重置
+        CircleButton(Icons.Default.Refresh, { viewModel.resetTimer() },
+            Color.White.copy(alpha = 0.5f), 48)
+        // 播放/暂停（大按钮）
+        val running = state.timerState == TimerState.RUNNING
+        CircleButton(
+            if (running) Icons.Default.Pause else Icons.Default.PlayArrow,
+            { if (running) viewModel.pauseTimer() else viewModel.startTimer() },
+            if (running) preset.primary else preset.secondary, 64
+        )
+        // 跳过
+        CircleButton(Icons.Default.SkipNext, { viewModel.resetTimer() },
+            Color.White.copy(alpha = 0.5f), 48)
+    }
+}
+
+@Composable
+private fun CircleButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
     color: Color,
-    big: Boolean = false,
-    small: Boolean = false
+    size: Int
 ) {
-    val size = if (big) 64.dp else 44.dp
     Box(
         modifier = Modifier
-            .size(size)
-            .clip(RoundedCornerShape(if (big) 32 else 22))
-            .background(color.copy(alpha = 0.15f))
+            .size(size.dp)
+            .clip(RoundedCornerShape(size / 2))
+            .background(color.copy(alpha = 0.12f))
             .clickable(
-                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick
             ),
         contentAlignment = Alignment.Center
     ) {
         Icon(icon, contentDescription = null, tint = color,
-            modifier = Modifier.size(if (big) 28.dp else 20.dp))
+            modifier = Modifier.size((size * 0.42).dp))
     }
 }
