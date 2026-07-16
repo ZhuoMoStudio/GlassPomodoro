@@ -1,8 +1,6 @@
 package com.zhuomo.glasspomodoro.data.repository
 
 import android.content.Context
-import androidx.datastore.core.CorruptionException
-import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -16,20 +14,15 @@ import com.zhuomo.glasspomodoro.model.ClockDisplaySettings
 import com.zhuomo.glasspomodoro.model.ThemeSettings
 import com.zhuomo.glasspomodoro.model.WallpaperSettings
 import com.zhuomo.glasspomodoro.model.WallpaperSource
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import java.io.IOException
 
-// DataStore 委托必须使用顶层属性（单例）
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
-    name = "settings",
-    corruptionHandler = { corruptionException: CorruptionException ->
-        // 文件损坏时删除重建，不崩溃
-        throw corruptionException // 让 DataStore 自动重建文件
-    }
-)
+// DataStore 委托（单例，顶层属性）
+private val Context.dataStore by preferencesDataStore(name = "settings")
 
 class SettingsRepository(private val context: Context) {
 
@@ -59,10 +52,7 @@ class SettingsRepository(private val context: Context) {
 
     val clockSettings: Flow<ClockDisplaySettings> = context.dataStore.data
         .catch { e: Throwable ->
-            // DataStore 读取失败不崩溃，返回默认值
-            if (e is IOException || e is CorruptionException) {
-                emit(emptyPreferences)
-            } else throw e
+            if (e is IOException) emit(emptyPreferences()) else throw e
         }
         .map { prefs ->
             ClockDisplaySettings(
@@ -77,9 +67,7 @@ class SettingsRepository(private val context: Context) {
 
     val wallpaperSettings: Flow<WallpaperSettings> = context.dataStore.data
         .catch { e: Throwable ->
-            if (e is IOException || e is CorruptionException) {
-                emit(emptyPreferences)
-            } else throw e
+            if (e is IOException) emit(emptyPreferences()) else throw e
         }
         .map { prefs ->
             WallpaperSettings(
@@ -93,9 +81,7 @@ class SettingsRepository(private val context: Context) {
 
     val themeSettings: Flow<ThemeSettings> = context.dataStore.data
         .catch { e: Throwable ->
-            if (e is IOException || e is CorruptionException) {
-                emit(emptyPreferences)
-            } else throw e
+            if (e is IOException) emit(emptyPreferences()) else throw e
         }
         .map { prefs ->
             ThemeSettings(
@@ -113,9 +99,7 @@ class SettingsRepository(private val context: Context) {
 
     val language: Flow<String> = context.dataStore.data
         .catch { e: Throwable ->
-            if (e is IOException || e is CorruptionException) {
-                emit(emptyPreferences)
-            } else throw e
+            if (e is IOException) emit(emptyPreferences()) else throw e
         }
         .map { prefs -> prefs[LANGUAGE] ?: "zh" }
         .flowOn(Dispatchers.IO)
