@@ -66,10 +66,6 @@ dependencies {
     // Network (Bing wallpaper API)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
-    // Koin DI
-    implementation("io.insert-koin:koin-android:4.0.1")
-    implementation("io.insert-koin:koin-androidx-compose:4.0.1")
-
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
