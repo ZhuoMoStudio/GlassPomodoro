@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Glass Pomodoro</string>
+    <string name="start">开始</string>
+    <string name="pause">暂停</string>
+    <string name="reset">重置</string>
+    <string name="work_session">专注</string>
+    <string name="break_session">休息</string>
+    <string name="work_description">专注于当前任务</string>
+    <string name="break_description">放松一下</string>
+    <string name="sessions_completed">已完成: %d 轮</string>
+    <string name="microphone_permission">需要麦克风权限来检测环境声波驱动动效</string>
+</resources>
