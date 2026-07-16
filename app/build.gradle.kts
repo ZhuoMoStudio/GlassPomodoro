@@ -18,19 +18,19 @@ android {
     }
 
     signingConfigs {
-        val keystorePath = System.getenv("KEYSTORE_PATH")
-        val storePassword = System.getenv("KEYSTORE_PASSWORD")
-        val keyAlias = System.getenv("KEY_ALIAS")
-        val keyPassword = System.getenv("KEY_PASSWORD")
+        val envKeystorePath = System.getenv("KEYSTORE_PATH")
+        val envStorePass = System.getenv("KEYSTORE_PASSWORD")
+        val envKeyAlias = System.getenv("KEY_ALIAS")
+        val envKeyPass = System.getenv("KEY_PASSWORD")
 
         // 仅在所有签名环境变量都存在时创建 release 签名配置
         // 这些变量由 GitHub Secrets 通过 Actions 工作流注入
-        if (keystorePath != null && storePassword != null && keyAlias != null && keyPassword != null) {
+        if (envKeystorePath != null && envStorePass != null && envKeyAlias != null && envKeyPass != null) {
             create("release") {
-                storeFile = file(keystorePath)
-                storePassword = storePassword
-                keyAlias = keyAlias
-                keyPassword = keyPassword
+                storeFile = file(envKeystorePath)
+                storePassword = envStorePass
+                keyAlias = envKeyAlias
+                keyPassword = envKeyPass
             }
         }
     }
