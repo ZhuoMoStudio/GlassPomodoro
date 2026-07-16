@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.GlassPomodoro" parent="android:Theme.Material.NoActionBar">
+    <style name="Theme.GlassPomodoro" parent="@android:style/Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowBackground">@color/glass_background_start</item>
-        <item name="android:windowIsTranslucent">true</item>
+        <!-- 注意: 不要设置 windowIsTranslucent=true，某些 Android 版本与 Compose 不兼容 -->
         <item name="android:windowShowWallpaper">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
     </style>
 </resources>

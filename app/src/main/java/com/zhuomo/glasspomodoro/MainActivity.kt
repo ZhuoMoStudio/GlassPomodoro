@@ -2,9 +2,7 @@ package com.zhuomo.glasspomodoro
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
-import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,20 +20,15 @@ class MainActivity : ComponentActivity() {
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { }
+    ) { granted ->
+        // 权限结果由 ViewModel 自动处理
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 请求麦克风权限
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        }
-
+        // 先设置 Compose 内容，确保窗口已完全初始化
         setContent {
-            // 先设置 Compose 内容，确保 window 已就绪
             val mainVM: MainViewModel = viewModel()
             val preset = currentColorPreset(mainVM.settingsRepo)
             GlassPomodoroTheme(preset = preset, darkTheme = true) {
@@ -43,17 +36,30 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Window 内容就绪后再设置全屏（避免某些设备上崩溃）
+        // 全屏沉浸模式（在 Content 设置之后执行，避免闪退）
         window.decorView.post {
             try {
                 WindowCompat.setDecorFitsSystemWindows(window, false)
-                val controller = WindowInsetsControllerCompat(window, window.decorView)
-                controller.hide(WindowInsetsCompat.Type.systemBars())
-                controller.systemBarsBehavior =
-                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                WindowInsetsControllerCompat(window, window.decorView).apply {
+                    hide(WindowInsetsCompat.Type.systemBars())
+                    systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                }
             } catch (_: Exception) {
-                // 全屏模式失败不影响核心功能
+                // 全屏并非必需功能，失败不影响使用
             }
         }
+
+        // 延迟请求麦克风权限（避免启动时权限弹窗干扰首帧渲染）
+        window.decorView.postDelayed({
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                try {
+                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                } catch (_: Exception) {
+                    // 权限请求失败不影响核心功能
+                }
+            }
+        }, 500)
     }
 }

@@ -61,6 +61,20 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
+
+    packaging {
+        // 解决多个库中 META-INF 文件冲突导致的崩溃
+        resources.excludes.addAll(listOf(
+            "META-INF/DEPENDENCIES",
+            "META-INF/LICENSE",
+            "META-INF/LICENSE.txt",
+            "META-INF/NOTICE",
+            "META-INF/NOTICE.txt",
+            "META-INF/AL2.0",
+            "META-INF/LGPL2.1",
+            "META-INF/versions/**"
+        ))
+    }
 }
 
 dependencies {
