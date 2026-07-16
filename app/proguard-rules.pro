@@ -43,9 +43,17 @@
     @androidx.room.* <fields>;
 }
 
-# ===== DataStore =====
+# ===== DataStore (protobuf 反射类必须保留) =====
 -keep class androidx.datastore.** { *; }
+-keepclassmembers class androidx.datastore.** { *; }
 -dontwarn androidx.datastore.**
+# DataStore 使用 protobuf-lite 反射，R8 不能裁剪
+-keep class com.google.protobuf.** { *; }
+-dontwarn com.google.protobuf.**
+# DataStore 文件操作异常处理
+-keep class java.io.FileNotFoundException
+-keep class java.io.IOException
+-keep class kotlinx.coroutines.flow.** { *; }
 
 # ===== Lifecycle / ViewModel =====
 -keep class * extends androidx.lifecycle.ViewModel { *; }
