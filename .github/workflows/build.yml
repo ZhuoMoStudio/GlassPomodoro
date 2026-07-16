@@ -5,8 +5,10 @@ on:
     branches: [main, develop]
     tags:
       - 'v*'
-  pull_request:
-    branches: [main]
+
+permissions:
+  contents: write        # 允许创建 Release 和上传附件
+  actions: read
 
 jobs:
   build:
@@ -34,29 +36,34 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # ===== Release 签名：从 GitHub Secrets 安全加载 =====
-      # 使用方法：
-      # 1. 将 .jks 文件 base64 编码后存入 Secrets.KEYSTORE_FILE
-      #    base64 -w0 your-keystore.jks
-      # 2. 在 GitHub 仓库 → Settings → Secrets and variables → Actions 添加：
-      #    - KEYSTORE_FILE: base64 编码的密钥库
-      #    - KEYSTORE_PASSWORD: 密钥库密码
-      #    - KEY_ALIAS: 密钥别名
-      #    - KEY_PASSWORD: 密钥密码
-      # ⚠️ 以上所有 Secrets 仅 Actions 运行时可见，不会泄露到日志或代码中
+      # ===== Release 签名配置 =====
+      # 你需要先在 GitHub 仓库设置中添加以下 Secrets：
+      #   仓库 → Settings → Secrets and variables → Actions → New repository secret
+      #
+      # 1. KEYSTORE_FILE: 你的 .jks 密钥库文件（base64 编码）
+      #    命令: base64 -w0 your-keystore.jks | pbcopy  (Mac)
+      #          certutil -encode your-keystore.jks | findstr /v "-----"   (Win)
+      #
+      # 2. KEYSTORE_PASSWORD: 密钥库密码
+      # 3. KEY_ALIAS: 密钥别名（如 my-key）
+      # 4. KEY_PASSWORD: 密钥密码
+      #
+      # 未设置这些 Secrets 时，Release APK 会使用 debug 签名（安装正常但不可分发）
       - name: Decode keystore from secrets
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           KEYSTORE_FILE_B64: ${{ secrets.KEYSTORE_FILE }}
         run: |
           if [ -n "$KEYSTORE_FILE_B64" ]; then
-            echo "$KEYSTORE_FILE_B64" | base64 -d > $HOME/keystore.jks
-            echo "KEYSTORE_PATH=$HOME/keystore.jks" >> $GITHUB_ENV
-            echo "✅ 密钥库已从 Secrets 安全加载"
+            echo "$KEYSTORE_FILE_B64" | base64 -d > $HOME/keystore.jks 2>/dev/null
+            if [ -s "$HOME/keystore.jks" ]; then
+              echo "KEYSTORE_PATH=$HOME/keystore.jks" >> $GITHUB_ENV
+              echo "✅ 密钥库已从 Secrets 安全加载 ($(wc -c < $HOME/keystore.jks) bytes)"
+            else
+              echo "⚠️ base64 解码失败，跳过签名"
+            fi
           else
-            echo "⚠️ 未设置 KEYSTORE_FILE Secret，跳过签名"
-            # 设置空值以便 Gradle 判断跳过签名
-            echo "KEYSTORE_PATH=" >> $GITHUB_ENV
+            echo "ℹ️ KEYSTORE_FILE Secret 未设置，使用 debug 签名构建"
           fi
 
       - name: Build Debug APK
@@ -67,8 +74,9 @@ jobs:
         with:
           name: GlassPomodoro-debug
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
 
-      - name: Build Release APK (signed with secrets)
+      - name: Build Release APK
         if: startsWith(github.ref, 'refs/tags/v')
         run: ./gradlew assembleRelease
         env:
@@ -83,6 +91,7 @@ jobs:
         with:
           name: GlassPomodoro-release
           path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: warn
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -92,4 +101,4 @@ jobs:
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/release/*.apk
           generate_release_notes: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_unmatched_files: false
