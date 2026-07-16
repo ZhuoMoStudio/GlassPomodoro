@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
@@ -29,15 +28,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.zhuomo.glasspomodoro.data.repository.SettingsRepository
 import com.zhuomo.glasspomodoro.model.AppMode
+import com.zhuomo.glasspomodoro.model.WallpaperSettings
 import com.zhuomo.glasspomodoro.ui.screens.ClockScreen
 import com.zhuomo.glasspomodoro.ui.screens.PomodoroScreen
 import com.zhuomo.glasspomodoro.ui.screens.SettingsScreen
@@ -59,6 +57,9 @@ fun AppNavigation(
 
     val pomodoroVM: PomodoroViewModel = viewModel()
 
+    // 壁纸设置（用于 Pomodoro 背景）
+    val wallpaper by repo.wallpaperSettings.collectAsState(initial = WallpaperSettings())
+
     Box(modifier = Modifier.fillMaxSize()) {
         if (showSettings) {
             SettingsScreen(repository = repo, onBack = { mainViewModel.toggleSettings() }, isZh = isZh)
@@ -66,13 +67,19 @@ fun AppNavigation(
             // 主内容
             Crossfade(targetState = mode, label = "mode") { currentMode ->
                 when (currentMode) {
-                    AppMode.CLOCK -> ClockScreen(repo, amplitude, amplitude > 0.01f, isZh)
+                    AppMode.CLOCK -> ClockScreen(
+                        repository = repo,
+                        amplitude = amplitude,
+                        isMicActive = amplitude > 0.01f,
+                        mediaMonitor = mainViewModel.mediaMonitor,
+                        isZh = isZh
+                    )
                     AppMode.POMODORO -> {
                         pomodoroVM.updateAmplitude(amplitude)
                         PomodoroScreen(
                             viewModel = pomodoroVM,
                             repository = repo,
-                            wallpaperSettings = wallpaperSettings(repo),
+                            wallpaperSettings = wallpaper,
                             isZh = isZh
                         )
                     }
@@ -177,6 +184,3 @@ private fun NavButton(
         )
     }
 }
-
-private fun wallpaperSettings(repo: SettingsRepository): com.zhuomo.glasspomodoro.model.WallpaperSettings =
-    com.zhuomo.glasspomodoro.model.WallpaperSettings()

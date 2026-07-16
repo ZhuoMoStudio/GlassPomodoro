@@ -13,7 +13,7 @@ data class ClockDisplaySettings(
 )
 
 // ===== 壁纸设置 =====
-enum class WallpaperSource { NONE, BING, LOCAL }
+enum class WallpaperSource { NONE, BING, LOCAL, ALBUM_ART }
 data class WallpaperSettings(
     val source: WallpaperSource = WallpaperSource.BING,
     val localPath: String = "",

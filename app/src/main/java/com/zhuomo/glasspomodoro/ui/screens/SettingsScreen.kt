@@ -108,7 +108,8 @@ fun SettingsScreen(
         item { WallpaperSource.entries.forEach { src ->
             val label = when(src) { WallpaperSource.NONE -> if (isZh) "无" else "None"
                 WallpaperSource.BING -> if (isZh) "Bing 每日壁纸" else "Bing Daily"
-                WallpaperSource.LOCAL -> if (isZh) "本地相册" else "Local Gallery" }
+                WallpaperSource.LOCAL -> if (isZh) "本地相册" else "Local Gallery"
+                WallpaperSource.ALBUM_ART -> if (isZh) "🎵 当前播放专辑取色" else "🎵 Now Playing Colors" }
             Row(verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.05f)).clickable {
                     if (src == WallpaperSource.LOCAL) launcher.launch("image/*")

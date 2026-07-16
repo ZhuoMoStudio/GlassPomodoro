@@ -7,6 +7,7 @@ import com.zhuomo.glasspomodoro.audio.AudioAmplitudeDetector
 import com.zhuomo.glasspomodoro.data.local.AppDatabase
 import com.zhuomo.glasspomodoro.data.local.FocusRecordEntity
 import com.zhuomo.glasspomodoro.data.repository.SettingsRepository
+import com.zhuomo.glasspomodoro.media.MediaPlaybackMonitor
 import com.zhuomo.glasspomodoro.model.AppMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +21,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val focusDao = db.focusDao()
     private val audioDetector = AudioAmplitudeDetector(application)
 
+    val mediaMonitor = MediaPlaybackMonitor(application)
+
     private val _amplitude = MutableStateFlow(0f)
     val amplitude: StateFlow<Float> = _amplitude.asStateFlow()
 
@@ -29,11 +32,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _showSettings = MutableStateFlow(false)
     val showSettings: StateFlow<Boolean> = _showSettings.asStateFlow()
 
-    init { startAudio() }
+    init {
+        startAudio()
+        monitorMedia()
+    }
 
     private fun startAudio() {
         viewModelScope.launch {
             audioDetector.startListening().collect { _amplitude.value = it }
+        }
+    }
+
+    private fun monitorMedia() {
+        viewModelScope.launch {
+            mediaMonitor.startMonitoring().collect { /* media info flows automatically */ }
         }
     }
 
@@ -49,5 +61,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         audioDetector.stop()
+        mediaMonitor.stop()
     }
 }
