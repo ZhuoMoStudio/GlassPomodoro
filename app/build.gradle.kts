@@ -17,11 +17,26 @@ android {
         versionName = "1.0.0"
     }
 
+    signingConfigs {
+        create("release") {
+            // 从环境变量读取签名信息（由 GitHub Secrets 注入，永不写入代码）
+            val keystorePath = System.getenv("KEYSTORE_PATH") ?: return@create
+            storeFile = file(keystorePath)
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: return@create
+            keyAlias = System.getenv("KEY_ALIAS") ?: return@create
+            keyPassword = System.getenv("KEY_PASSWORD") ?: return@create
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("release")
+        }
+        debug {
+            // Debug 使用 Android 默认 debug 签名，无需任何密码
         }
     }
 

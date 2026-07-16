@@ -34,6 +34,29 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      # ===== Release 签名：从 GitHub Secrets 安全加载 =====
+      # 使用方法：
+      # 1. 将 .jks 文件 base64 编码后存入 Secrets.KEYSTORE_FILE
+      #    base64 -w0 your-keystore.jks
+      # 2. 在 GitHub 仓库 → Settings → Secrets and variables → Actions 添加：
+      #    - KEYSTORE_FILE: base64 编码的密钥库
+      #    - KEYSTORE_PASSWORD: 密钥库密码
+      #    - KEY_ALIAS: 密钥别名
+      #    - KEY_PASSWORD: 密钥密码
+      # ⚠️ 以上所有 Secrets 仅 Actions 运行时可见，不会泄露到日志或代码中
+      - name: Decode keystore from secrets
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          KEYSTORE_FILE_B64: ${{ secrets.KEYSTORE_FILE }}
+        run: |
+          if [ -n "$KEYSTORE_FILE_B64" ]; then
+            echo "$KEYSTORE_FILE_B64" | base64 -d > $HOME/keystore.jks
+            echo "KEYSTORE_PATH=$HOME/keystore.jks" >> $GITHUB_ENV
+            echo "✅ 密钥库已从 Secrets 安全加载"
+          else
+            echo "⚠️ 未设置 KEYSTORE_FILE Secret，Release 将使用 debug 签名"
+          fi
+
       - name: Build Debug APK
         run: ./gradlew assembleDebug
 
@@ -43,12 +66,12 @@ jobs:
           name: GlassPomodoro-debug
           path: app/build/outputs/apk/debug/*.apk
 
-      - name: Build Release APK (if tag push)
+      - name: Build Release APK (signed with secrets)
         if: startsWith(github.ref, 'refs/tags/v')
         run: ./gradlew assembleRelease
         env:
-          STORE_FILE: ${{ secrets.KEYSTORE_FILE }}
-          STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
