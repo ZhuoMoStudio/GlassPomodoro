@@ -87,13 +87,19 @@ fun AppNavigation(
             }
 
             // 底部导航栏
-            BottomNavBar(
-                currentMode = mode,
-                preset = preset,
-                isZh = isZh,
-                onModeChange = { mainViewModel.switchMode(it) },
-                onSettingsClick = { mainViewModel.toggleSettings() }
-            )
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+            ) {
+                BottomNavBar(
+                    currentMode = mode,
+                    preset = preset,
+                    isZh = isZh,
+                    onModeChange = { mainViewModel.switchMode(it) },
+                    onSettingsClick = { mainViewModel.toggleSettings() }
+                )
+            }
         }
     }
 }
@@ -109,7 +115,6 @@ private fun BottomNavBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .align(androidx.compose.ui.Alignment.BottomCenter)
             .padding(16.dp)
             .clip(RoundedCornerShape(24.dp))
             .background(Color(0x22000000))
