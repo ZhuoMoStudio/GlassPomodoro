@@ -20,7 +20,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val db = AppDatabase.getInstance(application)
     val focusDao = db.focusDao()
     private val audioDetector = AudioAmplitudeDetector(application)
-
     val mediaMonitor = MediaPlaybackMonitor(application)
 
     private val _amplitude = MutableStateFlow(0f)
@@ -32,20 +31,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _showSettings = MutableStateFlow(false)
     val showSettings: StateFlow<Boolean> = _showSettings.asStateFlow()
 
-    init {
-        startAudio()
-        monitorMedia()
-    }
-
-    private fun startAudio() {
+    // 由 Compose 端主动调用，避免 ViewModel 初始化时阻塞
+    fun startAudioMonitoring() {
         viewModelScope.launch {
-            audioDetector.startListening().collect { _amplitude.value = it }
+            try {
+                audioDetector.startListening().collect { _amplitude.value = it }
+            } catch (_: Exception) {
+                // 音频监听失败不影响核心功能
+            }
         }
     }
 
-    private fun monitorMedia() {
+    fun startMediaMonitoring() {
         viewModelScope.launch {
-            mediaMonitor.startMonitoring().collect { /* media info flows automatically */ }
+            try {
+                mediaMonitor.startMonitoring().collect { /* 自动更新 nowPlaying 状态 */ }
+            } catch (_: Exception) {
+                // 媒体监听失败不影响核心功能
+            }
         }
     }
 
@@ -54,13 +57,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun saveFocusRecord(durationMinutes: Int) {
         viewModelScope.launch {
-            focusDao.insert(FocusRecordEntity(durationMinutes = durationMinutes))
+            try {
+                focusDao.insert(FocusRecordEntity(durationMinutes = durationMinutes))
+            } catch (_: Exception) { }
         }
     }
 
     override fun onCleared() {
         super.onCleared()
-        audioDetector.stop()
-        mediaMonitor.stop()
+        try { audioDetector.stop() } catch (_: Exception) { }
+        try { mediaMonitor.stop() } catch (_: Exception) { }
     }
 }

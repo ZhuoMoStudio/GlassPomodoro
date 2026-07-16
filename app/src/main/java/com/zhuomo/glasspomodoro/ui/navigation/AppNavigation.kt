@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -59,6 +60,12 @@ fun AppNavigation(
 
     // 壁纸设置（用于 Pomodoro 背景）
     val wallpaper by repo.wallpaperSettings.collectAsState(initial = WallpaperSettings())
+
+    // 首帧渲染后启动音频和媒体监听（避免 init 阻塞导致 HyperOS 闪退）
+    LaunchedEffect(Unit) {
+        mainViewModel.startAudioMonitoring()
+        mainViewModel.startMediaMonitoring()
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (showSettings) {
