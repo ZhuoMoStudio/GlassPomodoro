@@ -23,18 +23,14 @@ import kotlin.math.sqrt
 
 /**
  * 水波纹动效 v2.0 — 音叉入水式的同心圆涟漪
- *
- * 声音越大（amplitude 越大）：
- * - 涟漪半径越大
- * - 涟漪扩散速度越快
- * - 涟漪透明度越高
- * - 水面波动幅度越大
+ * v1.0.6: 增强振幅响应，amplification 参数动态放大
  */
 @Composable
 fun WaterRippleBackground(
     amplitude: Float = 0f,
     accentColor: Color = Color(0x336C63FF),
     isActive: Boolean = true,
+    amplification: Float = 1.8f,
     modifier: Modifier = Modifier
 ) {
     // 多个独立的涟漪相位
@@ -54,7 +50,8 @@ fun WaterRippleBackground(
         val cy = h * 0.55f // 涟漪中心偏下
 
         // 音频强度：安静时 0.03（微弱涟漪），最大时 1.0（明显波动）
-        val intensity = if (isActive) amplitude.coerceIn(0.02f, 1f) else 0.02f
+        val baseIntensity = if (isActive) amplitude.coerceIn(0.02f, 1f) else 0.02f
+        val intensity = (baseIntensity * amplification).coerceIn(0.02f, 1.5f)
         val maxRadius = sqrt(w * w + h * h).toFloat() * 0.55f
 
         // =======================

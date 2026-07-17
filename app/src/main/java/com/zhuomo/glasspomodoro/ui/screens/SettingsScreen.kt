@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import kotlin.math.abs
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -37,6 +38,7 @@ fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit, isZh: Boo
     val dimMask by repository.dimMaskSettings.collectAsState(initial = DimMaskSettings())
     val clockFont by repository.clockFont.collectAsState(initial = ClockFont.MONO)
     val clockColors by repository.clockColors.collectAsState(initial = ClockCustomColors())
+    val fx by repository.visualEffects.collectAsState(initial = VisualEffectsSettings())
     val preset = currentColorPreset(repository)
     val config = LocalConfiguration.current
     val isLandscape = config.screenWidthDp > config.screenHeightDp
@@ -181,6 +183,16 @@ fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit, isZh: Boo
                 scope.launch { repository.updateDimMask(dimMask.copy(dynamicResponse = it)) } }
             }
 
+            // 可视化动效开关（v1.0.6）
+            item { SectionTitle(if (isZh) "🎬 可视化动效" else "🎬 Visual Effects", preset.accent1) }
+            item { ToggleRow(if (isZh) "🌊 水波涟漪" else "🌊 Water Ripple", fx.enableWaterRipple, preset.primary) { scope.launch { repository.updateVisualEffects(fx.copy(enableWaterRipple = it)) } } }
+            item { ToggleRow(if (isZh) "📊 音频波形" else "📊 Waveform", fx.enableWaveform, preset.primary) { scope.launch { repository.updateVisualEffects(fx.copy(enableWaveform = it)) } } }
+            item { ToggleRow(if (isZh) "✨ 流体粒子" else "✨ Fluid Particles", fx.enableFluidParticles, preset.primary) { scope.launch { repository.updateVisualEffects(fx.copy(enableFluidParticles = it)) } } }
+
+            // 动效强度滑块（防抖）
+            item { DebouncedSliderRow(if (isZh) "波形振幅" else "Wave Amp", fx.waveformAmplification, 0.3f, 3f) { scope.launch { repository.updateVisualEffects(fx.copy(waveformAmplification = it)) } } }
+            item { DebouncedSliderRow(if (isZh) "涟漪振幅" else "Ripple Amp", fx.rippleAmplification, 0.3f, 3f) { scope.launch { repository.updateVisualEffects(fx.copy(rippleAmplification = it)) } } }
+
             // 白噪音说明
             item { SectionTitle(if (isZh) "🔊 白噪音" else "🔊 White Noise", preset.accent1) }
             item {
@@ -208,6 +220,20 @@ private fun ToggleRow(label: String, checked: Boolean, accent: Color, onChange: 
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Text(label, color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp, modifier = Modifier.weight(1f))
         Switch(checked = checked, onCheckedChange = onChange, colors = SwitchDefaults.colors(checkedTrackColor = accent))
+    }
+}
+
+/** 防抖滑块 */
+@Composable
+private fun DebouncedSliderRow(label: String, value: Float, min: Float, max: Float, onSave: (Float) -> Unit) {
+    val localValue = remember { mutableStateOf(value) }
+    if (abs(localValue.value - value) > 0.001f) localValue.value = value
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Text(label, color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp, modifier = Modifier.width(80.dp))
+        Slider(value = localValue.value.coerceIn(min, max), onValueChange = { localValue.value = it },
+            onValueChangeFinished = { onSave(localValue.value) }, valueRange = min..max, modifier = Modifier.weight(1f),
+            colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White.copy(alpha = 0.5f)))
+        Text("%.2f".format(localValue.value), color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.width(40.dp))
     }
 }
 

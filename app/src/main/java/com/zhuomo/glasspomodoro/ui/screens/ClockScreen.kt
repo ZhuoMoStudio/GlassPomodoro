@@ -28,8 +28,10 @@ import com.zhuomo.glasspomodoro.audio.WhiteNoisePlayer
 import com.zhuomo.glasspomodoro.data.repository.SettingsRepository
 import com.zhuomo.glasspomodoro.model.*
 import com.zhuomo.glasspomodoro.ui.components.background.DimMaskLayer
+import com.zhuomo.glasspomodoro.ui.components.background.FluidParticles
 import com.zhuomo.glasspomodoro.ui.components.background.WallpaperLayer
 import com.zhuomo.glasspomodoro.ui.components.background.WaterRippleBackground
+import com.zhuomo.glasspomodoro.ui.components.background.WaveformRenderer
 import com.zhuomo.glasspomodoro.ui.theme.currentColorPreset
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,7 +41,6 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
-import kotlin.math.sin
 
 @Composable
 fun ClockScreen(repository: SettingsRepository, amplitude: Float, isMicActive: Boolean, albumArt: Bitmap?, isZh: Boolean = true) {
@@ -49,9 +50,9 @@ fun ClockScreen(repository: SettingsRepository, amplitude: Float, isMicActive: B
     val dimMask by repository.dimMaskSettings.collectAsState(initial = DimMaskSettings())
     val clockFontPref by repository.clockFont.collectAsState(initial = ClockFont.MONO)
     val clockColorsPref by repository.clockColors.collectAsState(initial = ClockCustomColors())
+    val fx by repository.visualEffects.collectAsState(initial = VisualEffectsSettings())
     val preset = currentColorPreset(repository)
 
-    // 时钟颜色：使用预设或自定义
     val clockColor = if (clockColorsPref.usePreset) preset.primary else Color(clockColorsPref.customColor.toInt())
     val clockSecondaryColor = if (clockColorsPref.usePreset) preset.secondary else Color(clockColorsPref.customSecondaryColor.toInt())
 
@@ -62,25 +63,21 @@ fun ClockScreen(repository: SettingsRepository, amplitude: Float, isMicActive: B
     val isWide by remember { derivedStateOf { config.screenWidthDp.toFloat() / config.screenHeightDp.toFloat() > 1.5f } }
     val timeSize by remember { derivedStateOf { if (isWide) 120.sp else 72.sp } }
 
-    // 时钟字体映射
-    val fontFamily = when (clockFontPref) {
-        ClockFont.MONO -> FontFamily.Monospace
-        ClockFont.SANS -> FontFamily.SansSerif
-        ClockFont.SERIF -> FontFamily.Serif
-        ClockFont.MODERN -> FontFamily.SansSerif
-        ClockFont.BOLD -> FontFamily.SansSerif
-    }
-    val fontWeight = when (clockFontPref) {
-        ClockFont.BOLD -> FontWeight.Bold; ClockFont.MODERN -> FontWeight.Light
-        else -> FontWeight.Light
-    }
+    val fontFamily = when (clockFontPref) { ClockFont.MONO -> FontFamily.Monospace; ClockFont.SANS -> FontFamily.SansSerif; ClockFont.SERIF -> FontFamily.Serif; else -> FontFamily.SansSerif }
+    val fontWeight = when (clockFontPref) { ClockFont.BOLD -> FontWeight.Bold; else -> FontWeight.Light }
+
+    // 全局时间（用于粒子动画）
+    var globalTime by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(Unit) { while (true) { globalTime += 16f; delay(16L) } }
+
+    val effectiveAmp = if (isMicActive) amplitude else 0f
 
     // 白噪音
     val context = LocalContext.current
     val noisePlayer = remember { WhiteNoisePlayer(context) }
-    val trackNames = listOf("rain", "ocean", "fire", "forest", "stream", "whitenoise")
-    val trackLabels = if (isZh) listOf("雨声", "海浪", "篝火", "森林", "溪流", "白噪音") else listOf("Rain", "Ocean", "Fire", "Forest", "Stream", "White")
-    val trackIcons = listOf("🌧", "🌊", "🔥", "🌲", "💧", "📡")
+    val trackNames = listOf("rain","ocean","fire","forest","stream","whitenoise")
+    val trackLabels = if (isZh) listOf("雨声","海浪","篝火","森林","溪流","白噪音") else listOf("Rain","Ocean","Fire","Forest","Stream","White")
+    val trackIcons = listOf("🌧","🌊","🔥","🌲","💧","📡")
     var activeNoiseTypes by remember { mutableStateOf(emptyList<String>()) }
     var showNoisePanel by remember { mutableStateOf(false) }
 
@@ -89,12 +86,28 @@ fun ClockScreen(repository: SettingsRepository, amplitude: Float, isMicActive: B
     Box(modifier = Modifier.fillMaxSize()) {
         // 底层：壁纸
         WallpaperLayer(settings = wallpaperSettings)
-        // 中层：暗色遮罩
-        DimMaskLayer(amplitude = amplitude, settings = dimMask)
-        // 水波纹（保持原有 WaterRipple）
-        WaterRippleBackground(amplitude = amplitude)
 
-        // 顶层：时钟
+        // 中层1：暗色遮罩
+        DimMaskLayer(amplitude = effectiveAmp, settings = dimMask, time = globalTime)
+
+        // 中层2：水波纹（音频驱动，amplification 可调）
+        if (fx.enableWaterRipple) {
+            WaterRippleBackground(amplitude = effectiveAmp, accentColor = preset.primary, isActive = isMicActive, amplification = fx.rippleAmplification)
+        }
+
+        // 中层3：流体粒子
+        if (fx.enableFluidParticles) {
+            FluidParticles(amplitude = effectiveAmp, colors = listOf(preset.primary, preset.secondary, preset.accent1), isActive = isMicActive, amplification = fx.waveformAmplification, time = globalTime)
+        }
+
+        // 中层4：音频波形（底部）
+        if (fx.enableWaveform) {
+            Box(Modifier.fillMaxSize().padding(bottom = 8.dp), contentAlignment = Alignment.BottomCenter) {
+                WaveformRenderer(amplitude = effectiveAmp, accentColor = preset.primary, isActive = isMicActive, amplification = fx.waveformAmplification)
+            }
+        }
+
+        // 顶层：时钟文字
         Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(String.format("%02d", hour), color = clockColor, fontSize = timeSize, fontWeight = fontWeight, fontFamily = fontFamily)
@@ -112,16 +125,13 @@ fun ClockScreen(repository: SettingsRepository, amplitude: Float, isMicActive: B
             if (parts.isNotEmpty()) Text(parts.joinToString("  "), color = Color.White.copy(alpha = 0.5f), fontSize = (timeSize.value * 0.12f).sp)
         }
 
-        // 白噪音按钮 + 面板
+        // 白噪音
         Column(modifier = Modifier.align(Alignment.TopStart).padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(Color(0x22FFFFFF))
-                    .clickable(remember { MutableInteractionSource() }, null) { showNoisePanel = !showNoisePanel }, contentAlignment = Alignment.Center) {
-                    Text("🎵", fontSize = 18.sp)
-                }
+                    .clickable(remember { MutableInteractionSource() }, null) { showNoisePanel = !showNoisePanel }, contentAlignment = Alignment.Center) { Text("🎵", fontSize = 18.sp) }
                 if (activeNoiseTypes.isNotEmpty()) {
-                    Spacer(Modifier.width(6.dp))
-                    Text(activeNoiseTypes.size.toString(), color = Color(0xFF51CF66), fontSize = 12.sp,
+                    Spacer(Modifier.width(6.dp)); Text(activeNoiseTypes.size.toString(), color = Color(0xFF51CF66), fontSize = 12.sp,
                         modifier = Modifier.size(20.dp).clip(RoundedCornerShape(10.dp)).background(Color(0x3351CF66)).padding(2.dp), textAlign = TextAlign.Center)
                 }
             }
@@ -131,15 +141,14 @@ fun ClockScreen(repository: SettingsRepository, amplitude: Float, isMicActive: B
                     Spacer(Modifier.height(6.dp))
                     trackNames.forEachIndexed { idx, name ->
                         val isOn = activeNoiseTypes.contains(name)
-                        Row(verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
-                                .background(if (isOn) Color(0x3351CF66) else Color.Transparent)
-                                .clickable(remember { MutableInteractionSource() }, null) {
-                                    CoroutineScope(Dispatchers.Main).launch {
-                                        if (isOn) { noisePlayer.stop(name); activeNoiseTypes = activeNoiseTypes - name }
-                                        else { noisePlayer.play(name); activeNoiseTypes = activeNoiseTypes + name }
-                                    }
-                                }.padding(horizontal = 8.dp, vertical = 5.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
+                            .background(if (isOn) Color(0x3351CF66) else Color.Transparent)
+                            .clickable(remember { MutableInteractionSource() }, null) {
+                                CoroutineScope(Dispatchers.Main).launch {
+                                    if (isOn) { noisePlayer.stop(name); activeNoiseTypes = activeNoiseTypes - name }
+                                    else { noisePlayer.play(name); activeNoiseTypes = activeNoiseTypes + name }
+                                }
+                            }.padding(horizontal = 8.dp, vertical = 5.dp)) {
                             Text(trackIcons[idx], fontSize = 16.sp); Spacer(Modifier.width(6.dp))
                             Text(trackLabels[idx], color = if (isOn) Color(0xFF51CF66) else Color.White.copy(alpha = 0.7f), fontSize = 12.sp, modifier = Modifier.weight(1f))
                             if (isOn) Text("●", color = Color(0xFF51CF66), fontSize = 10.sp)
