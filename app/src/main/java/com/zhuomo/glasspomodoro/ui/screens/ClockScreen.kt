@@ -1,169 +1,156 @@
 package com.zhuomo.glasspomodoro.ui.screens
 
+import android.graphics.Bitmap
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.zhuomo.glasspomodoro.audio.WhiteNoisePlayer
 import com.zhuomo.glasspomodoro.data.repository.SettingsRepository
-import com.zhuomo.glasspomodoro.model.WallpaperSettings
-import com.zhuomo.glasspomodoro.model.WallpaperSource
+import com.zhuomo.glasspomodoro.model.*
+import com.zhuomo.glasspomodoro.ui.components.background.DimMaskLayer
 import com.zhuomo.glasspomodoro.ui.components.background.WallpaperLayer
-import com.zhuomo.glasspomodoro.ui.components.background.WaterRippleBackground
 import com.zhuomo.glasspomodoro.ui.theme.currentColorPreset
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlin.math.sin
 
-/**
- * 时钟模式 v2.0 - 简洁大字布局，BiliPai 风格
- * - 去掉翻页时钟，使用简洁大号数字
- * - 时间和日期分明，不重叠
- * - 时间占屏幕比例大幅增加
- */
 @Composable
-fun ClockScreen(
-    repository: SettingsRepository,
-    amplitude: Float,
-    isMicActive: Boolean,
-    isZh: Boolean = true
-) {
+fun ClockScreen(repository: SettingsRepository, amplitude: Float, isMicActive: Boolean, albumArt: Bitmap?, isZh: Boolean = true) {
     val wallpaperSettings by repository.wallpaperSettings.collectAsState(initial = WallpaperSettings())
+    val clockSet by repository.clockSettings.collectAsState(initial = ClockDisplaySettings())
+    val theme by repository.themeSettings.collectAsState(initial = ThemeSettings())
+    val dimMask by repository.dimMaskSettings.collectAsState(initial = DimMaskSettings())
+    val clockFontPref by repository.clockFont.collectAsState(initial = ClockFont.MONO)
+    val clockColorsPref by repository.clockColors.collectAsState(initial = ClockCustomColors())
     val preset = currentColorPreset(repository)
-    val clockSettings by repository.clockSettings.collectAsState(
-        initial = com.zhuomo.glasspomodoro.model.ClockDisplaySettings()
-    )
 
-    var dateTime by remember { mutableStateOf(LocalDateTime.now()) }
-    LaunchedEffect(Unit) {
-        while (true) { dateTime = LocalDateTime.now(); delay(1000L) }
+    // 时钟颜色：使用预设或自定义
+    val clockColor = if (clockColorsPref.usePreset) preset.primary else Color(clockColorsPref.customColor.toInt())
+    val clockSecondaryColor = if (clockColorsPref.usePreset) preset.secondary else Color(clockColorsPref.customSecondaryColor.toInt())
+
+    var rawDateTime by remember { mutableStateOf(LocalDateTime.now()) }
+    LaunchedEffect(Unit) { while (true) { rawDateTime = LocalDateTime.now(); delay(1000L) } }
+
+    val config = LocalConfiguration.current
+    val isWide by remember { derivedStateOf { config.screenWidthDp.toFloat() / config.screenHeightDp.toFloat() > 1.5f } }
+    val timeSize by remember { derivedStateOf { if (isWide) 120.sp else 72.sp } }
+
+    // 时钟字体映射
+    val fontFamily = when (clockFontPref) {
+        ClockFont.MONO -> FontFamily.Monospace
+        ClockFont.SANS -> FontFamily.SansSerif
+        ClockFont.SERIF -> FontFamily.Serif
+        ClockFont.MODERN -> FontFamily.SansSerif
+        ClockFont.BOLD -> FontFamily.SansSerif
+    }
+    val fontWeight = when (clockFontPref) {
+        ClockFont.BOLD -> FontWeight.Bold; ClockFont.MODERN -> FontWeight.Light
+        else -> FontWeight.Light
     }
 
-    // 专辑颜色自动应用
-    var albumColors by remember { mutableStateOf<List<Color>?>(null) }
+    // 白噪音
+    val context = LocalContext.current
+    val noisePlayer = remember { WhiteNoisePlayer(context) }
+    val trackNames = listOf("rain", "ocean", "fire", "forest", "stream", "whitenoise")
+    val trackLabels = if (isZh) listOf("雨声", "海浪", "篝火", "森林", "溪流", "白噪音") else listOf("Rain", "Ocean", "Fire", "Forest", "Stream", "White")
+    val trackIcons = listOf("🌧", "🌊", "🔥", "🌲", "💧", "📡")
+    var activeNoiseTypes by remember { mutableStateOf(emptyList<String>()) }
+    var showNoisePanel by remember { mutableStateOf(false) }
 
-    // 获取设备屏幕比例
-    val config = LocalConfiguration.current
-    val screenW = config.screenWidthDp
-    val screenH = config.screenHeightDp
-    val isWide = screenW.toFloat() / screenH.toFloat() > 2f
+    val hour = if (clockSet.use24Hour) rawDateTime.hour else if (rawDateTime.hour % 12 == 0) 12 else rawDateTime.hour % 12
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // 壁纸层
-        if (wallpaperSettings.source == WallpaperSource.ALBUM_ART && !albumColors.isNullOrEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().background(
-                brush = Brush.linearGradient(colors = albumColors!!)
-            ))
-        } else {
-            WallpaperLayer(settings = wallpaperSettings)
+        // 底层：壁纸
+        WallpaperLayer(settings = wallpaperSettings)
+        // 中层：暗色遮罩
+        DimMaskLayer(amplitude = amplitude, settings = dimMask)
+        // 水波纹（保持原有 WaterRipple）
+        com.zhuomo.glasspomodoro.ui.components.background.WaterRipple(amplitude = amplitude)
+
+        // 顶层：时钟
+        Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(String.format("%02d", hour), color = clockColor, fontSize = timeSize, fontWeight = fontWeight, fontFamily = fontFamily)
+                Text(":", color = Color.White.copy(alpha = 0.2f), fontSize = timeSize, fontWeight = fontWeight, fontFamily = fontFamily)
+                Text(String.format("%02d", rawDateTime.minute), color = clockColor, fontSize = timeSize, fontWeight = fontWeight, fontFamily = fontFamily)
+                if (clockSet.showSeconds) {
+                    Text(":" + String.format("%02d", rawDateTime.second), color = clockSecondaryColor.copy(alpha = 0.5f), fontSize = (timeSize.value * 0.35f).sp, fontWeight = fontWeight, fontFamily = fontFamily)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            val parts = mutableListOf<String>()
+            if (clockSet.showDate) parts.add(rawDateTime.format(DateTimeFormatter.ofPattern("MM/dd")))
+            if (clockSet.showWeekday) parts.add(rawDateTime.dayOfWeek.getDisplayName(TextStyle.FULL, if (isZh) Locale.CHINESE else Locale.ENGLISH))
+            if (clockSet.showYear) parts.add(rawDateTime.year.toString())
+            if (parts.isNotEmpty()) Text(parts.joinToString("  "), color = Color.White.copy(alpha = 0.5f), fontSize = (timeSize.value * 0.12f).sp)
         }
 
-        // 暗色遮罩
-        Box(Modifier.fillMaxSize().background(Color(0x88000000)))
-
-        // 水波纹动效层
-        WaterRippleBackground(amplitude = amplitude,
-            accentColor = preset.primary, isActive = isMicActive)
-
-        // 主内容 - 时间大字
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val usableHeight = maxHeight
-            val timeFontSize = if (isWide) (usableHeight.value * 0.38).sp.toSp()
-                else (usableHeight.value * 0.32).sp.toSp().coerceAtMost(200.sp)
-            val dateFontSize = (timeFontSize.value * 0.22).sp
-
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 48.dp, vertical = 32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
-            ) {
-                // 时间行 - 主显示
-                val hour = if (clockSettings.use24Hour) dateTime.hour
-                else if (dateTime.hour % 12 == 0) 12 else dateTime.hour % 12
-                val hourStr = String.format("%02d", hour)
-                val minStr = String.format("%02d", dateTime.minute)
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextUI(hourStr, timeFontSize, preset.primary)
-                    TextUI(":", timeFontSize.copy(alpha = 0.3f), Color.White.copy(alpha = 0.3f))
-                    TextUI(minStr, timeFontSize, preset.primary)
-                    if (clockSettings.showSeconds) {
-                        TextUI(":", dateFontSize.copy(alpha = 0.3f), Color.White.copy(alpha = 0.3f))
-                        TextUI(String.format("%02d", dateTime.second), dateFontSize * 1.5f,
-                            preset.secondary.copy(alpha = 0.6f))
+        // 白噪音按钮 + 面板
+        Column(modifier = Modifier.align(Alignment.TopStart).padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(Color(0x22FFFFFF))
+                    .clickable(remember { MutableInteractionSource() }, null) { showNoisePanel = !showNoisePanel }, contentAlignment = Alignment.Center) {
+                    Text("🎵", fontSize = 18.sp)
+                }
+                if (activeNoiseTypes.isNotEmpty()) {
+                    Spacer(Modifier.width(6.dp))
+                    Text(activeNoiseTypes.size.toString(), color = Color(0xFF51CF66), fontSize = 12.sp,
+                        modifier = Modifier.size(20.dp).clip(RoundedCornerShape(10.dp)).background(Color(0x3351CF66)).padding(2.dp), textAlign = TextAlign.Center)
+                }
+            }
+            AnimatedVisibility(visible = showNoisePanel, enter = fadeIn() + slideInVertically { -it }, exit = fadeOut() + slideOutVertically { -it }) {
+                Column(Modifier.padding(top = 8.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xDD000000)).padding(10.dp)) {
+                    Text(if (isZh) "白噪音（可叠加）" else "Noise (Mixable)", color = Color.White.copy(alpha = 0.6f), fontSize = 10.sp)
+                    Spacer(Modifier.height(6.dp))
+                    trackNames.forEachIndexed { idx, name ->
+                        val isOn = activeNoiseTypes.contains(name)
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
+                                .background(if (isOn) Color(0x3351CF66) else Color.Transparent)
+                                .clickable(remember { MutableInteractionSource() }, null) {
+                                    CoroutineScope(Dispatchers.Main).launch {
+                                        if (isOn) { noisePlayer.stop(name); activeNoiseTypes = activeNoiseTypes - name }
+                                        else { noisePlayer.play(name); activeNoiseTypes = activeNoiseTypes + name }
+                                    }
+                                }.padding(horizontal = 8.dp, vertical = 5.dp)) {
+                            Text(trackIcons[idx], fontSize = 16.sp); Spacer(Modifier.width(6.dp))
+                            Text(trackLabels[idx], color = if (isOn) Color(0xFF51CF66) else Color.White.copy(alpha = 0.7f), fontSize = 12.sp, modifier = Modifier.weight(1f))
+                            if (isOn) Text("●", color = Color(0xFF51CF66), fontSize = 10.sp)
+                        }
                     }
-                }
-
-                if (!clockSettings.use24Hour) {
-                    TextUI(if (dateTime.hour < 12) "AM" else "PM",
-                        dateFontSize, preset.primary.copy(alpha = 0.5f))
-                }
-
-                Spacer(Modifier.height(20.dp))
-
-                // 日期行 - 清晰分离
-                val dateParts = mutableListOf<String>()
-                if (clockSettings.showDate)
-                    dateParts.add(dateTime.format(DateTimeFormatter.ofPattern("MM/dd")))
-                if (clockSettings.showWeekday)
-                    dateParts.add(dateTime.dayOfWeek.getDisplayName(
-                        TextStyle.FULL, if (isZh) Locale.CHINESE else Locale.ENGLISH))
-                if (clockSettings.showYear)
-                    dateParts.add(dateTime.year.toString())
-
-                if (dateParts.isNotEmpty()) {
-                    TextUI(dateParts.joinToString("  "), dateFontSize,
-                        Color.White.copy(alpha = 0.6f))
+                    if (activeNoiseTypes.isNotEmpty()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(if (isZh) "全部停止" else "Stop All", color = Color(0xFFFF6B6B), fontSize = 11.sp,
+                            modifier = Modifier.fillMaxWidth().clickable(remember { MutableInteractionSource() }, null) { noisePlayer.stopAll(); activeNoiseTypes = emptyList() }.padding(4.dp), textAlign = TextAlign.Center)
+                    }
                 }
             }
         }
     }
 }
-
-@Composable
-private fun TextUI(text: String, size: androidx.compose.ui.unit.TextUnit, color: Color) {
-    androidx.compose.material3.Text(
-        text = text,
-        color = color,
-        fontSize = size,
-        fontWeight = FontWeight.Light,
-        fontFamily = FontFamily.Monospace,
-        letterSpacing = androidx.compose.ui.unit.TextUnit(
-            (size.value * 0.02f).toFloat(), androidx.compose.ui.unit.TextUnitType.Sp)
-    )
-}
-
-// 辅助转换
-private fun androidx.compose.ui.unit.Dp.toSp(): androidx.compose.ui.unit.TextUnit =
-    androidx.compose.ui.unit.TextUnit(this.value * 0.76f, androidx.compose.ui.unit.TextUnitType.Sp)
-private fun Float.toSp(): androidx.compose.ui.unit.TextUnit =
-    androidx.compose.ui.unit.TextUnit(this, androidx.compose.ui.unit.TextUnitType.Sp)
-private operator fun androidx.compose.ui.unit.TextUnit.times(factor: Float): androidx.compose.ui.unit.TextUnit =
-    androidx.compose.ui.unit.TextUnit(this.value * factor, this.type)
-private fun androidx.compose.ui.unit.TextUnit.copy(alpha: Float): Color =
-    Color.White.copy(alpha = alpha)

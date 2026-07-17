@@ -1,142 +1,69 @@
 package com.zhuomo.glasspomodoro.data.repository
 
 import android.content.Context
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
-import androidx.datastore.preferences.core.floatPreferencesKey
-import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.longPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
-import com.zhuomo.glasspomodoro.model.ClockDisplaySettings
-import com.zhuomo.glasspomodoro.model.ThemeSettings
-import com.zhuomo.glasspomodoro.model.WallpaperSettings
-import com.zhuomo.glasspomodoro.model.WallpaperSource
+import com.zhuomo.glasspomodoro.model.*
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.*
 import java.io.IOException
 
-// DataStore 委托（单例，顶层属性）
 private val Context.dataStore by preferencesDataStore(name = "settings")
 
 class SettingsRepository(private val context: Context) {
-
     companion object {
-        val SHOW_YEAR = booleanPreferencesKey("show_year")
-        val SHOW_DATE = booleanPreferencesKey("show_date")
-        val SHOW_WEEKDAY = booleanPreferencesKey("show_weekday")
-        val SHOW_SECONDS = booleanPreferencesKey("show_seconds")
-        val USE_24HOUR = booleanPreferencesKey("use_24hour")
-
-        val WALLPAPER_SOURCE = stringPreferencesKey("wallpaper_source")
-        val LOCAL_PATH = stringPreferencesKey("local_path")
-        val BING_REGION = stringPreferencesKey("bing_region")
+        val SHOW_YEAR = booleanPreferencesKey("show_year"); val SHOW_DATE = booleanPreferencesKey("show_date"); val SHOW_WEEKDAY = booleanPreferencesKey("show_weekday")
+        val SHOW_SECONDS = booleanPreferencesKey("show_seconds"); val USE_24HOUR = booleanPreferencesKey("use_24hour")
+        val WALLPAPER_SOURCE = stringPreferencesKey("wallpaper_source"); val LOCAL_PATH = stringPreferencesKey("local_path"); val BING_REGION = stringPreferencesKey("bing_region")
         val BLUR_AMOUNT = floatPreferencesKey("blur_amount")
-
-        val PRESET_INDEX = intPreferencesKey("preset_index")
-        val IS_CUSTOM_COLOR = booleanPreferencesKey("is_custom_color")
-        val CUSTOM_PRIMARY = longPreferencesKey("custom_primary")
-        val CUSTOM_SECONDARY = longPreferencesKey("custom_secondary")
-        val USE_DARK_MODE = booleanPreferencesKey("use_dark_mode")
-        val AUTO_DARK_MODE = booleanPreferencesKey("auto_dark_mode")
-        val DARK_START = intPreferencesKey("dark_start")
-        val DARK_END = intPreferencesKey("dark_end")
-
-        val LANGUAGE = stringPreferencesKey("language")
+        val PRESET_INDEX = intPreferencesKey("preset_index"); val IS_CUSTOM_COLOR = booleanPreferencesKey("is_custom_color")
+        val CUSTOM_PRIMARY = longPreferencesKey("custom_primary"); val CUSTOM_SECONDARY = longPreferencesKey("custom_secondary")
+        val THEME_MODE = stringPreferencesKey("theme_mode"); val LANGUAGE = stringPreferencesKey("language")
+        // 时钟字体和颜色
+        val CLOCK_FONT = stringPreferencesKey("clock_font"); val CLOCK_USE_PRESET = booleanPreferencesKey("clock_use_preset")
+        val CLOCK_CUSTOM_COLOR = longPreferencesKey("clock_custom_color"); val CLOCK_CUSTOM_SECONDARY = longPreferencesKey("clock_custom_secondary")
+        // 蒙版
+        val DIM_MASK_STYLE = stringPreferencesKey("dim_mask_style"); val DIM_MASK_ALPHA = floatPreferencesKey("dim_mask_alpha"); val DIM_MASK_RESPONSE = floatPreferencesKey("dim_mask_response")
     }
 
-    val clockSettings: Flow<ClockDisplaySettings> = context.dataStore.data
-        .catch { e: Throwable ->
-            if (e is IOException) emit(emptyPreferences()) else throw e
-        }
-        .map { prefs ->
-            ClockDisplaySettings(
-                showYear = prefs[SHOW_YEAR] ?: false,
-                showDate = prefs[SHOW_DATE] ?: true,
-                showWeekday = prefs[SHOW_WEEKDAY] ?: true,
-                showSeconds = prefs[SHOW_SECONDS] ?: true,
-                use24Hour = prefs[USE_24HOUR] ?: true
-            )
-        }
-        .flowOn(Dispatchers.IO)
+    val clockSettings: Flow<ClockDisplaySettings> = ctx().catch { if (it is IOException) emit(emptyPreferences()) else throw it }.map { p ->
+        ClockDisplaySettings(p[SHOW_YEAR]?:false, p[SHOW_DATE]?:true, p[SHOW_WEEKDAY]?:true, p[SHOW_SECONDS]?:true, p[USE_24HOUR]?:true)
+    }.flowOn(Dispatchers.IO)
 
-    val wallpaperSettings: Flow<WallpaperSettings> = context.dataStore.data
-        .catch { e: Throwable ->
-            if (e is IOException) emit(emptyPreferences()) else throw e
-        }
-        .map { prefs ->
-            WallpaperSettings(
-                source = try { WallpaperSource.valueOf(prefs[WALLPAPER_SOURCE] ?: "BING") } catch (_: Exception) { WallpaperSource.BING },
-                localPath = prefs[LOCAL_PATH] ?: "",
-                bingRegion = prefs[BING_REGION] ?: "zh-CN",
-                blurAmount = prefs[BLUR_AMOUNT] ?: 0f
-            )
-        }
-        .flowOn(Dispatchers.IO)
+    val wallpaperSettings: Flow<WallpaperSettings> = ctx().catch { if (it is IOException) emit(emptyPreferences()) else throw it }.map { p ->
+        WallpaperSettings(try{ WallpaperSource.valueOf(p[WALLPAPER_SOURCE] ?: "BING") }catch(_:Exception){WallpaperSource.BING}, p[LOCAL_PATH] ?: "", p[BING_REGION] ?: "zh-CN", p[BLUR_AMOUNT] ?: 0f)
+    }.flowOn(Dispatchers.IO)
 
-    val themeSettings: Flow<ThemeSettings> = context.dataStore.data
-        .catch { e: Throwable ->
-            if (e is IOException) emit(emptyPreferences()) else throw e
-        }
-        .map { prefs ->
-            ThemeSettings(
-                presetIndex = prefs[PRESET_INDEX] ?: 0,
-                isCustomColor = prefs[IS_CUSTOM_COLOR] ?: false,
-                customPrimary = prefs[CUSTOM_PRIMARY] ?: 0xFF6C63FF,
-                customSecondary = prefs[CUSTOM_SECONDARY] ?: 0xFF339AF0,
-                useDarkMode = prefs[USE_DARK_MODE] ?: true,
-                autoDarkMode = prefs[AUTO_DARK_MODE] ?: true,
-                darkModeStartHour = prefs[DARK_START] ?: 19,
-                darkModeEndHour = prefs[DARK_END] ?: 7
-            )
-        }
-        .flowOn(Dispatchers.IO)
+    val themeSettings: Flow<ThemeSettings> = ctx().catch { if (it is IOException) emit(emptyPreferences()) else throw it }.map { p ->
+        ThemeSettings(p[PRESET_INDEX]?:0, p[IS_CUSTOM_COLOR]?:false, p[CUSTOM_PRIMARY]?:0xFF6C63FF, p[CUSTOM_SECONDARY]?:0xFF339AF0,
+            try { ThemeMode.valueOf(p[THEME_MODE] ?: "DARK") } catch(_:Exception){ ThemeMode.DARK })
+    }.flowOn(Dispatchers.IO)
 
-    val language: Flow<String> = context.dataStore.data
-        .catch { e: Throwable ->
-            if (e is IOException) emit(emptyPreferences()) else throw e
-        }
-        .map { prefs -> prefs[LANGUAGE] ?: "zh" }
-        .flowOn(Dispatchers.IO)
+    val language: Flow<String> = ctx().catch { if (it is IOException) emit(emptyPreferences()) else throw it }.map { it[LANGUAGE] ?: "zh" }.flowOn(Dispatchers.IO)
 
-    suspend fun updateClock(settings: ClockDisplaySettings) {
-        context.dataStore.edit { prefs ->
-            prefs[SHOW_YEAR] = settings.showYear
-            prefs[SHOW_DATE] = settings.showDate
-            prefs[SHOW_WEEKDAY] = settings.showWeekday
-            prefs[SHOW_SECONDS] = settings.showSeconds
-            prefs[USE_24HOUR] = settings.use24Hour
-        }
-    }
+    val dimMaskSettings: Flow<DimMaskSettings> = ctx().catch { if (it is IOException) emit(emptyPreferences()) else throw it }.map { p ->
+        DimMaskSettings(style = try { DimMaskStyle.valueOf(p[DIM_MASK_STYLE] ?: "DYNAMIC_GLOW") } catch(_:Exception){ DimMaskStyle.DYNAMIC_GLOW },
+            customAlpha = p[DIM_MASK_ALPHA] ?: 0.35f, dynamicResponse = p[DIM_MASK_RESPONSE] ?: 0.5f)
+    }.flowOn(Dispatchers.IO)
 
-    suspend fun updateWallpaper(settings: WallpaperSettings) {
-        context.dataStore.edit { prefs ->
-            prefs[WALLPAPER_SOURCE] = settings.source.name
-            prefs[LOCAL_PATH] = settings.localPath
-            prefs[BING_REGION] = settings.bingRegion
-            prefs[BLUR_AMOUNT] = settings.blurAmount
-        }
-    }
+    // 时钟字体
+    val clockFont: Flow<ClockFont> = ctx().catch { if (it is IOException) emit(emptyPreferences()) else throw it }.map { p ->
+        try { ClockFont.valueOf(p[CLOCK_FONT] ?: "MONO") } catch(_:Exception){ ClockFont.MONO }
+    }.flowOn(Dispatchers.IO)
 
-    suspend fun updateTheme(settings: ThemeSettings) {
-        context.dataStore.edit { prefs ->
-            prefs[PRESET_INDEX] = settings.presetIndex
-            prefs[IS_CUSTOM_COLOR] = settings.isCustomColor
-            prefs[CUSTOM_PRIMARY] = settings.customPrimary
-            prefs[CUSTOM_SECONDARY] = settings.customSecondary
-            prefs[USE_DARK_MODE] = settings.useDarkMode
-            prefs[AUTO_DARK_MODE] = settings.autoDarkMode
-            prefs[DARK_START] = settings.darkModeStartHour
-            prefs[DARK_END] = settings.darkModeEndHour
-        }
-    }
+    // 时钟自定义颜色
+    val clockColors: Flow<ClockCustomColors> = ctx().catch { if (it is IOException) emit(emptyPreferences()) else throw it }.map { p ->
+        ClockCustomColors(usePreset = p[CLOCK_USE_PRESET] ?: true,
+            customColor = p[CLOCK_CUSTOM_COLOR] ?: 0xFF6C63FF, customSecondaryColor = p[CLOCK_CUSTOM_SECONDARY] ?: 0xFF339AF0)
+    }.flowOn(Dispatchers.IO)
 
-    suspend fun setLanguage(lang: String) {
-        context.dataStore.edit { it[LANGUAGE] = lang }
-    }
+    suspend fun updateClock(s: ClockDisplaySettings) { context.dataStore.edit { p -> p[SHOW_YEAR]=s.showYear; p[SHOW_DATE]=s.showDate; p[SHOW_WEEKDAY]=s.showWeekday; p[SHOW_SECONDS]=s.showSeconds; p[USE_24HOUR]=s.use24Hour }}
+    suspend fun updateWallpaper(s: WallpaperSettings) { context.dataStore.edit { p -> p[WALLPAPER_SOURCE]=s.source.name; p[LOCAL_PATH]=s.localPath; p[BING_REGION]=s.bingRegion; p[BLUR_AMOUNT]=s.blurAmount }}
+    suspend fun updateTheme(s: ThemeSettings) { context.dataStore.edit { p -> p[PRESET_INDEX]=s.presetIndex; p[IS_CUSTOM_COLOR]=s.isCustomColor; p[CUSTOM_PRIMARY]=s.customPrimary; p[CUSTOM_SECONDARY]=s.customSecondary; p[THEME_MODE]=s.themeMode.name }}
+    suspend fun updateDimMask(s: DimMaskSettings) { context.dataStore.edit { p -> p[DIM_MASK_STYLE]=s.style.name; p[DIM_MASK_ALPHA]=s.customAlpha; p[DIM_MASK_RESPONSE]=s.dynamicResponse }}
+    suspend fun setLanguage(l: String) { context.dataStore.edit { it[LANGUAGE]=l } }
+    suspend fun updateClockFont(f: ClockFont) { context.dataStore.edit { it[CLOCK_FONT]=f.name } }
+    suspend fun updateClockColors(c: ClockCustomColors) { context.dataStore.edit { p -> p[CLOCK_USE_PRESET]=c.usePreset; p[CLOCK_CUSTOM_COLOR]=c.customColor; p[CLOCK_CUSTOM_SECONDARY]=c.customSecondaryColor }}
+
+    private fun ctx() = context.dataStore.data
 }
