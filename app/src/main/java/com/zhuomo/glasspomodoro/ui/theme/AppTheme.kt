@@ -29,7 +29,7 @@ fun currentColorPreset(repository: SettingsRepository): ColorPreset {
 }
 
 @Composable
-fun GlassPomodoroTheme(preset: ColorPreset = ColorPresets.presets[0], themeMode: ThemeMode = ThemeMode.DARK, content: @Composable () -> Unit) {
+fun GlassPomodoroTheme(preset: ColorPreset, themeMode: ThemeMode = ThemeMode.DARK, content: @Composable () -> Unit) {
     val isDark = when (themeMode) {
         ThemeMode.DARK -> true; ThemeMode.LIGHT -> false; ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }

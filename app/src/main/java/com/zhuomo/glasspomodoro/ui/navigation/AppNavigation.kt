@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zhuomo.glasspomodoro.model.AppMode
 import com.zhuomo.glasspomodoro.model.WallpaperSettings
-import com.zhuomo.glasspomodoro.service.NotificationMediaService
 import com.zhuomo.glasspomodoro.ui.screens.ClockScreen
 import com.zhuomo.glasspomodoro.ui.screens.PomodoroScreen
 import com.zhuomo.glasspomodoro.ui.screens.SettingsScreen
@@ -40,7 +39,7 @@ fun AppNavigation(mainViewModel: MainViewModel = viewModel()) {
     val pomodoroVM: PomodoroViewModel = viewModel()
     val wallpaper by repo.wallpaperSettings.collectAsState(initial = WallpaperSettings())
 
-    LaunchedEffect(Unit) { mainViewModel.startAudioMonitoring(); mainViewModel.startMediaMonitoring() }
+    LaunchedEffect(Unit) { mainViewModel.startAudioMonitoring() }
 
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -51,14 +50,12 @@ fun AppNavigation(mainViewModel: MainViewModel = viewModel()) {
             Box(modifier = Modifier.fillMaxSize()) {
                 Crossfade(targetState = mode, label = "mode") { currentMode ->
                     when (currentMode) {
-                        AppMode.CLOCK -> ClockScreen(repository = repo, amplitude = amplitude, isMicActive = amplitude > 0.01f,
-                            albumArt = NotificationMediaService.albumArt.collectAsState().value, isZh = isZh)
+                        AppMode.CLOCK -> ClockScreen(repository = repo, amplitude = amplitude, isMicActive = amplitude > 0.01f, albumArt = null, isZh = isZh)
                         AppMode.POMODORO -> { pomodoroVM.updateAmplitude(amplitude); PomodoroScreen(viewModel = pomodoroVM, repository = repo, wallpaperSettings = wallpaper, isZh = isZh) }
                     }
                 }
             }
 
-            // 右上角汉堡菜单
             Column(modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)) {
                 Box {
                     IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(Color(0x22FFFFFF))) {

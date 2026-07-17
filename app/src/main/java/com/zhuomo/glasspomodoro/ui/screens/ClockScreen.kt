@@ -29,6 +29,7 @@ import com.zhuomo.glasspomodoro.data.repository.SettingsRepository
 import com.zhuomo.glasspomodoro.model.*
 import com.zhuomo.glasspomodoro.ui.components.background.DimMaskLayer
 import com.zhuomo.glasspomodoro.ui.components.background.WallpaperLayer
+import com.zhuomo.glasspomodoro.ui.components.background.WaterRipple
 import com.zhuomo.glasspomodoro.ui.theme.currentColorPreset
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -91,7 +92,7 @@ fun ClockScreen(repository: SettingsRepository, amplitude: Float, isMicActive: B
         // 中层：暗色遮罩
         DimMaskLayer(amplitude = amplitude, settings = dimMask)
         // 水波纹（保持原有 WaterRipple）
-        com.zhuomo.glasspomodoro.ui.components.background.WaterRipple(amplitude = amplitude)
+        WaterRipple(amplitude = amplitude)
 
         // 顶层：时钟
         Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
