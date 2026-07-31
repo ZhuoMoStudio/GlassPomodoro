@@ -125,7 +125,8 @@ class SettingsRepository(private val context: Context) {
     suspend fun clearGitHubConfig() { context.dataStore.edit { p -> p[GITHUB_TOKEN_SET] = false; p[GITHUB_USERNAME] = ""; p[GITHUB_AVATAR_URL] = "" } }
 
     private fun <T : Enum<T>> safeEnum(name: String?, default: T): T =
-        if (name.isNullOrBlank()) default else runCatching { enumValueOf<T>(name) }.getOrDefault(default)
+        if (name.isNullOrBlank()) default
+        else runCatching { java.lang.Enum.valueOf(default.javaClass as Class<T>, name) }.getOrDefault(default)
 
     private fun ctx() = context.dataStore.data
 }
