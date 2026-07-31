@@ -19,18 +19,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zhuomo.glasspomodoro.model.AppMode
+import com.zhuomo.glasspomodoro.model.FirstLaunchSettings
 import com.zhuomo.glasspomodoro.model.WallpaperSettings
 import com.zhuomo.glasspomodoro.ui.screens.ClockScreen
+import com.zhuomo.glasspomodoro.ui.screens.OnboardingScreen
 import com.zhuomo.glasspomodoro.ui.screens.PomodoroScreen
 import com.zhuomo.glasspomodoro.ui.screens.SettingsScreen
 import com.zhuomo.glasspomodoro.ui.theme.currentColorPreset
 import com.zhuomo.glasspomodoro.viewmodel.MainViewModel
 import com.zhuomo.glasspomodoro.viewmodel.PomodoroViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun AppNavigation(mainViewModel: MainViewModel = viewModel()) {
     val mode by mainViewModel.currentMode.collectAsState()
     val amplitude by mainViewModel.amplitude.collectAsState()
+    // v2.0 模块A：频谱数据
+    val spectrum by mainViewModel.spectrum.collectAsState()
     val showSettings by mainViewModel.showSettings.collectAsState()
     val repo = mainViewModel.settingsRepo
     val lang by repo.language.collectAsState(initial = "zh")
@@ -38,8 +43,26 @@ fun AppNavigation(mainViewModel: MainViewModel = viewModel()) {
     val preset = currentColorPreset(repo)
     val pomodoroVM: PomodoroViewModel = viewModel()
     val wallpaper by repo.wallpaperSettings.collectAsState(initial = WallpaperSettings())
+    // v2.0 模块E：首次启动 & 专辑封面
+    val firstLaunch by repo.isFirstLaunch.collectAsState(initial = FirstLaunchSettings(true))
+    val nowPlaying by mainViewModel.mediaMonitor.nowPlaying.collectAsState()
+    val scope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) { mainViewModel.startAudioMonitoring() }
+    LaunchedEffect(Unit) {
+        mainViewModel.startAudioMonitoring()
+        mainViewModel.startSpectrumMonitoring()
+        mainViewModel.startMediaMonitoring()
+    }
+
+    // ===== 模块E：首次启动引导 =====
+    if (firstLaunch.isFirstLaunch) {
+        OnboardingScreen(
+            repository = repo,
+            isZh = isZh,
+            onFinished = { scope.launch { repo.completeFirstLaunch() } }
+        )
+        return
+    }
 
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -50,8 +73,18 @@ fun AppNavigation(mainViewModel: MainViewModel = viewModel()) {
             Box(modifier = Modifier.fillMaxSize()) {
                 Crossfade(targetState = mode, label = "mode") { currentMode ->
                     when (currentMode) {
-                        AppMode.CLOCK -> ClockScreen(repository = repo, amplitude = amplitude, isMicActive = amplitude > 0.01f, albumArt = null, isZh = isZh)
-                        AppMode.POMODORO -> { pomodoroVM.updateAmplitude(amplitude); PomodoroScreen(viewModel = pomodoroVM, repository = repo, wallpaperSettings = wallpaper, isZh = isZh) }
+                        AppMode.CLOCK -> ClockScreen(
+                            repository = repo,
+                            amplitude = amplitude,
+                            spectrum = spectrum,
+                            isMicActive = amplitude > 0.01f,
+                            albumArt = nowPlaying.albumArtBitmap,
+                            isZh = isZh
+                        )
+                        AppMode.POMODORO -> {
+                            pomodoroVM.updateAmplitude(amplitude)
+                            PomodoroScreen(viewModel = pomodoroVM, repository = repo, wallpaperSettings = wallpaper, isZh = isZh)
+                        }
                     }
                 }
             }

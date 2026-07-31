@@ -19,3 +19,38 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+
+---
+
+## THIRD-PARTY NOTICES
+
+GlassPomodoro v2.0 incorporates the following open-source components:
+
+1. **AndroidX / Jetpack Compose / Material 3** (Apache License 2.0)
+   Copyright 2019-2026 The Android Open Source Project
+
+2. **Material Icons** (Apache License 2.0)
+   Copyright 2014 Google LLC
+   https://github.com/google/material-design-icons
+
+3. **Coil** (Apache License 2.0)
+   Copyright 2019-2024 Coil Contributors
+   https://github.com/coil-kt/coil
+
+4. **OkHttp** (Apache License 2.0)
+   Copyright 2019 Square, Inc.
+   https://github.com/square/okhttp
+
+5. **desugar_jdk_libs** (GPL-2.0-with-classpath-exception)
+   Copyright 2018 Google LLC
+   https://github.com/google/desugar_jdk_libs
+
+6. **simple-icons (GitHub icon path)** (CC0-1.0)
+   Copyright 2015 Simple Icons Collaborators
+   https://github.com/simple-icons/simple-icons
+
+7. **White noise audio assets** (CC0 1.0 Universal)
+   Rain / Ocean / Campfire / Forest / Stream / White Noise
+
+All trademarks, service marks, and logos are the property of their respective owners.

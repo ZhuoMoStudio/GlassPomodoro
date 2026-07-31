@@ -1,0 +1,94 @@
+// ============================================================
+// GlassPomodoro v2.0 — 物理级声学视觉引擎
+// 点波源径向水波 (AGSL, Android 13+)
+//
+// 物理模型:  A(d) = A0 * exp(-decay * d) * sin(omega * t - k * d)
+//   - 低频 (lowBand)  → 波幅 A0
+//   - 中频 (midBand)  → 波纹密度/角频率 (k, omega)
+//   - 高频 (highBand) → 粒子闪烁
+//
+// Uniform 说明（由 Kotlin 侧实时更新）:
+//   time       动画时间 (秒)
+//   source     波源归一化坐标 (0~1)
+//   amplitude  振幅强度 (0.2~2.0)
+//   speed      波速 (0.3~3.0)
+//   decay      衰减系数 (0.3~3.0)
+//   lowBand/midBand/highBand  FFT 三频段能量 (0~1)
+//   mode       0=纯水波 1=底部频谱 2=混合
+//   lightAngle 光影角度 (0~1 → 0°~360°)
+// ============================================================
+
+uniform float2 resolution;
+uniform float time;
+uniform float2 source;
+uniform float amplitude;
+uniform float speed;
+uniform float decay;
+uniform float lowBand;
+uniform float midBand;
+uniform float highBand;
+uniform float mode;
+uniform float lightAngle;
+
+layout(color) in half4 inColor;
+layout(color) out half4 fragColor;
+
+float hash(float2 p) {
+    return fract(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453);
+}
+
+half4 main(float2 fragCoord) {
+    float2 uv = fragCoord / resolution;
+    float aspect = resolution.x / resolution.y;
+    float2 delta = (uv - source) * float2(aspect, 1.0);
+    float dist = length(delta);
+
+    // ---- 物理波形：点波源衰减正弦 ----
+    float A0 = 0.35 + lowBand * 1.65;                 // 低频 → 波幅
+    float omega = (3.0 + midBand * 7.0) * speed;      // 中频 → 角频率（波速联动）
+    float k = 5.0 + midBand * 15.0;                   // 中频 → 波数（波纹密度）
+    float wave = A0 * exp(-decay * dist) * sin(omega * time - k * dist);
+    float envelope = exp(-decay * dist * 1.4);
+    float intensity = wave * envelope * amplitude;
+
+    // ---- 涟漪双色渐变（紫→青→粉） ----
+    float3 c1 = float3(0.42, 0.36, 1.0);
+    float3 c2 = float3(0.24, 0.80, 1.0);
+    float3 c3 = float3(0.98, 0.45, 0.85);
+    float t = clamp(intensity * 0.5 + 0.5, 0.0, 1.0);
+    float3 ripple = mix(c1, c2, smoothstep(0.0, 0.5, t));
+    ripple = mix(ripple, c3, smoothstep(0.5, 1.0, t));
+    float3 color = ripple * abs(intensity) * 0.85;
+
+    // ---- 波峰高光 ----
+    float highlight = pow(clamp(intensity, 0.0, 1.0), 3.0) * 1.8;
+    color += float3(highlight, highlight * 0.9, highlight * 1.1);
+
+    // ---- 高频 → 粒子闪烁 ----
+    float sparkle = highBand * 0.35 * step(0.985, hash(uv * 140.0 + fract(time * 1.7)));
+    color += float3(sparkle, sparkle * 0.9, sparkle * 1.2);
+
+    // ---- 底部频谱模式（mode 1/2） ----
+    if (mode > 0.5) {
+        float bars = 28.0;
+        float barIdx = floor(uv.x * bars);
+        float frac = fract(uv.x * bars);
+        float energy = lowBand * (1.0 - barIdx / bars) + midBand * 0.45 * (barIdx / bars);
+        float barH = energy * 0.30;
+        float band = step(uv.y, barH);
+        float3 spec = float3(0.10, 0.55, 1.0) * band * (1.0 - frac * 0.35) * (0.35 + 0.65 * energy);
+        color += spec;
+    }
+
+    // ---- 光影：随时间旋转的光照方向 ----
+    float angle = lightAngle * 6.2831853;
+    float2 lightDir = float2(cos(angle), sin(angle));
+    float shade = clamp(0.62 + 0.38 * dot(lightDir, normalize(delta + float2(0.0001, 0.0001))), 0.45, 1.0);
+    color *= shade;
+
+    // ---- 底部基调（深空蓝） ----
+    color = float3(0.015, 0.025, 0.055) + color * 0.95;
+
+    fragColor = half4(color, 1.0);
+    return fragColor;
+}

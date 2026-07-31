@@ -11,10 +11,11 @@ android {
 
     defaultConfig {
         applicationId = "com.zhuomo.glasspomodoro"
-        minSdk = 26
+        // v2.0: 最低 SDK 降至 API 24（Android 7.0），通过 desugaring 支持 java.time
+        minSdk = 24
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.0.6"
+        versionCode = 8
+        versionName = "2.0.0"
     }
 
     signingConfigs {
@@ -58,6 +59,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // v2.0: minSdk 24 下启用 java.time API desugaring
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
@@ -107,8 +110,11 @@ dependencies {
     // Coil (image loading for wallpapers)
     implementation("io.coil-kt:coil-compose:2.7.0")
 
-    // Network (Bing wallpaper API)
+    // Network (Bing wallpaper API / GitHub API)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // v2.0: java.time desugaring（minSdk 24 支持）
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")

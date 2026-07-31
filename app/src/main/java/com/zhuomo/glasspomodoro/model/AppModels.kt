@@ -36,7 +36,7 @@ data class ThemeSettings(val presetIndex: Int = 0, val isCustomColor: Boolean = 
 }
 
 // ===== 蒙版 =====
-enum class DimMaskStyle(val labelZh: String, val labelEn: String) { RADIAL_GRADIENT("径向渐变","Radial Gradient"), DYNAMIC_GLOW("动态光晕","Dynamic Glow"), FROSTED_GLASS("毛玻璃","Frosted Glass"), TECH_GRID("科技网格","Tech Grid") }
+enum class DimMaskStyle(val labelZh: String, val labelEn: String) { RADIAL_GRADIENT("径向渐变","Radial Gradient"), DYNAMIC_GLOW("动态光晕","Dynamic Glow"), FROSTED_GLASS("毛玻璃","Frosted Glass"), TECH_GRID("科技网格","Tech Grid"), WATER_REFRACTION("水波折射","Water Refraction"), DEPTH_BLUR("景深模糊","Depth Blur") }
 data class DimMaskSettings(val style: DimMaskStyle = DimMaskStyle.DYNAMIC_GLOW, val customAlpha: Float = 0.35f, val dynamicResponse: Float = 0.5f)
 
 // ===== 可视化动效开关设置（v1.0.6 新增） =====

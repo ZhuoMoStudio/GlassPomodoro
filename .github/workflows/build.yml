@@ -5,6 +5,8 @@ on:
     branches: [main]
     tags:
       - 'v*'
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
@@ -36,7 +38,7 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # ===== Release 签名配置 =====
+      # ===== Release 签名配置（仅 Tag 发布时） =====
       - name: Decode keystore from secrets
         if: startsWith(github.ref, 'refs/tags/v')
         env:
@@ -46,16 +48,25 @@ jobs:
             echo "$KEYSTORE_FILE_B64" | base64 -d > $HOME/keystore.jks 2>/dev/null
             if [ -s "$HOME/keystore.jks" ]; then
               echo "KEYSTORE_PATH=$HOME/keystore.jks" >> $GITHUB_ENV
-              echo "✅ 密钥库已从 Secrets 安全加载 ($(wc -c < $HOME/keystore.jks) bytes)"
+              echo "OK keystore loaded"
             else
-              echo "⚠️ base64 解码失败"
+              echo "WARN base64 decode failed"
             fi
           else
-            echo "ℹ️ 使用 debug 签名"
+            echo "INFO using debug signing"
           fi
 
-      - name: Build Release APK
-        run: ./gradlew assembleRelease
+      # ===== 按事件构建 =====
+      # - PR:   assembleDebug（快速验证编译）
+      # - main: assembleRelease（artifact）
+      # - Tag:  assembleRelease（GitHub Release）
+      - name: Build APK
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            ./gradlew assembleDebug
+          else
+            ./gradlew assembleRelease
+          fi
         env:
           KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -65,12 +76,25 @@ jobs:
       - name: Rename APK for end users
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          if [ -z "$VERSION" ] || [ "$VERSION" = "main" ]; then VERSION="2.0.0"; fi
+          SUFFIX=""
+          if [ "${{ github.event_name }}" = "pull_request" ]; then SUFFIX="-debug"; fi
           if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
-            cp "app/build/outputs/apk/release/app-release.apk" "GlassPomodoro-${VERSION}.apk"
+            cp "app/build/outputs/apk/release/app-release.apk" "GlassPomodoro-${VERSION}${SUFFIX}.apk"
           elif [ -f "app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
-            cp "app/build/outputs/apk/release/app-release-unsigned.apk" "GlassPomodoro-${VERSION}.apk"
+            cp "app/build/outputs/apk/release/app-release-unsigned.apk" "GlassPomodoro-${VERSION}${SUFFIX}.apk"
+          elif [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+            cp "app/build/outputs/apk/debug/app-debug.apk" "GlassPomodoro-${VERSION}${SUFFIX}.apk"
           fi
           ls -la GlassPomodoro-*.apk
+
+      - name: Upload APK artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: GlassPomodoro-APK
+          path: GlassPomodoro-*.apk
+          retention-days: 30
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')

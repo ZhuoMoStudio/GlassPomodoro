@@ -27,11 +27,7 @@ import androidx.compose.ui.unit.sp
 import com.zhuomo.glasspomodoro.audio.WhiteNoisePlayer
 import com.zhuomo.glasspomodoro.data.repository.SettingsRepository
 import com.zhuomo.glasspomodoro.model.*
-import com.zhuomo.glasspomodoro.ui.components.background.DimMaskLayer
-import com.zhuomo.glasspomodoro.ui.components.background.FluidParticles
-import com.zhuomo.glasspomodoro.ui.components.background.WallpaperLayer
-import com.zhuomo.glasspomodoro.ui.components.background.WaterRippleBackground
-import com.zhuomo.glasspomodoro.ui.components.background.WaveformRenderer
+import com.zhuomo.glasspomodoro.ui.components.background.*
 import com.zhuomo.glasspomodoro.ui.theme.currentColorPreset
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,8 +38,21 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
+/**
+ * 时钟主屏 v2.0
+ *
+ * 景深分层（模块C3）：
+ *   背景层(壁纸) → 水波层(声学视觉) → 玻璃层(遮罩+光影) → 数字层(时钟文字)
+ */
 @Composable
-fun ClockScreen(repository: SettingsRepository, amplitude: Float, isMicActive: Boolean, albumArt: Bitmap?, isZh: Boolean = true) {
+fun ClockScreen(
+    repository: SettingsRepository,
+    amplitude: Float,
+    spectrum: SpectrumData,
+    isMicActive: Boolean,
+    albumArt: Bitmap?,
+    isZh: Boolean = true
+) {
     val wallpaperSettings by repository.wallpaperSettings.collectAsState(initial = WallpaperSettings())
     val clockSet by repository.clockSettings.collectAsState(initial = ClockDisplaySettings())
     val theme by repository.themeSettings.collectAsState(initial = ThemeSettings())
@@ -51,6 +60,11 @@ fun ClockScreen(repository: SettingsRepository, amplitude: Float, isMicActive: B
     val clockFontPref by repository.clockFont.collectAsState(initial = ClockFont.MONO)
     val clockColorsPref by repository.clockColors.collectAsState(initial = ClockCustomColors())
     val fx by repository.visualEffects.collectAsState(initial = VisualEffectsSettings())
+    // v2.0 模块A/C
+    val acoustic by repository.acousticSettings.collectAsState(initial = AcousticSettings())
+    val glass by repository.glassSettings.collectAsState(initial = GlassSettings())
+    val priority by repository.wallpaperPriority.collectAsState(initial = WallpaperPrioritySettings())
+    val performance by repository.performanceProfile.collectAsState(initial = PerformanceProfile.BALANCED)
     val preset = currentColorPreset(repository)
 
     val clockColor = if (clockColorsPref.usePreset) preset.primary else Color(clockColorsPref.customColor.toInt())
@@ -66,11 +80,12 @@ fun ClockScreen(repository: SettingsRepository, amplitude: Float, isMicActive: B
     val fontFamily = when (clockFontPref) { ClockFont.MONO -> FontFamily.Monospace; ClockFont.SANS -> FontFamily.SansSerif; ClockFont.SERIF -> FontFamily.Serif; else -> FontFamily.SansSerif }
     val fontWeight = when (clockFontPref) { ClockFont.BOLD -> FontWeight.Bold; else -> FontWeight.Light }
 
-    // 全局时间（用于粒子动画）
+    // 全局时间（用于粒子/水波动画）
     var globalTime by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(Unit) { while (true) { globalTime += 16f; delay(16L) } }
 
     val effectiveAmp = if (isMicActive) amplitude else 0f
+    val powerSave = performance == PerformanceProfile.POWER_SAVE
 
     // 白噪音
     val context = LocalContext.current
@@ -84,30 +99,48 @@ fun ClockScreen(repository: SettingsRepository, amplitude: Float, isMicActive: B
     val hour = if (clockSet.use24Hour) rawDateTime.hour else if (rawDateTime.hour % 12 == 0) 12 else rawDateTime.hour % 12
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // 底层：壁纸
-        WallpaperLayer(settings = wallpaperSettings)
+        // ===== 背景层：优先级壁纸（专辑封面 > Bing > 本地 > 纯色） =====
+        WallpaperLayer(
+            settings = wallpaperSettings,
+            priorityOrder = priority.order,
+            albumArt = albumArt
+        )
 
-        // 中层1：暗色遮罩
+        // ===== 水波层：暗色遮罩 =====
         DimMaskLayer(amplitude = effectiveAmp, settings = dimMask, time = globalTime)
 
-        // 中层2：水波纹（音频驱动，amplification 可调）
+        // ===== 水波层：声学视觉引擎（三种显示模式） =====
         if (fx.enableWaterRipple) {
-            WaterRippleBackground(amplitude = effectiveAmp, accentColor = preset.primary, isActive = isMicActive, amplification = fx.rippleAmplification)
+            if (!powerSave) {
+                AcousticRippleLayer(
+                    spectrum = spectrum,
+                    settings = acoustic,
+                    accentColor = preset.primary,
+                    time = globalTime,
+                    lightAngle = glass.lightAngle,
+                    isActive = isMicActive
+                )
+            } else {
+                WaterRippleBackground(amplitude = effectiveAmp, accentColor = preset.primary, isActive = isMicActive, amplification = fx.rippleAmplification)
+            }
         }
 
-        // 中层3：流体粒子
-        if (fx.enableFluidParticles) {
+        // ===== 水波层：流体粒子（省电模式关闭） =====
+        if (fx.enableFluidParticles && !powerSave) {
             FluidParticles(amplitude = effectiveAmp, colors = listOf(preset.primary, preset.secondary, preset.accent1), isActive = isMicActive, amplification = fx.waveformAmplification, time = globalTime)
         }
 
-        // 中层4：音频波形（底部）
-        if (fx.enableWaveform) {
+        // ===== 水波层：波形渲染（仅纯水波模式且开启波形时显示，避免与频谱柱重复） =====
+        if (fx.enableWaveform && !powerSave && acoustic.mode == WaveMode.PURE_RIPPLE) {
             Box(Modifier.fillMaxSize().padding(bottom = 8.dp), contentAlignment = Alignment.BottomCenter) {
                 WaveformRenderer(amplitude = effectiveAmp, accentColor = preset.primary, isActive = isMicActive, amplification = fx.waveformAmplification)
             }
         }
 
-        // 顶层：时钟文字
+        // ===== 玻璃层：光影模拟（高光扫描 + 光照旋转） =====
+        GlassOverlayLayer(settings = glass, time = globalTime, accentColor = preset.primary)
+
+        // ===== 数字层：时钟文字（不受水波扰动） =====
         Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(String.format("%02d", hour), color = clockColor, fontSize = timeSize, fontWeight = fontWeight, fontFamily = fontFamily)

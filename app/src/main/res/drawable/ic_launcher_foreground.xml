@@ -4,11 +4,30 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- 番茄主体 - 更圆润真实的番茄形状 -->
+    <!-- v2.0 声学波纹（点波源涟漪） -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#6C63FF"
+        android:strokeWidth="1.6"
+        android:strokeAlpha="0.5"
+        android:pathData="M54,54 m-30,0 a30,30 0 1,1 60,0 a30,30 0 1,1 -60,0" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#339AF0"
+        android:strokeWidth="1.2"
+        android:strokeAlpha="0.35"
+        android:pathData="M54,54 m-40,0 a40,40 0 1,1 80,0 a40,40 0 1,1 -80,0" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#51CF66"
+        android:strokeWidth="0.8"
+        android:strokeAlpha="0.22"
+        android:pathData="M54,54 m-49,0 a49,49 0 1,1 98,0 a49,49 0 1,1 -98,0" />
+    <!-- 番茄主体 -->
     <path
         android:fillColor="#FF3B30"
         android:pathData="M54,26 C40,26 28,36 26,50 C24,62 28,72 34,78 C40,84 48,86 54,86 C60,86 68,84 74,78 C80,72 84,62 82,50 C80,36 68,26 54,26 Z" />
-    <!-- 番茄高光（光泽感） -->
+    <!-- 番茄高光 -->
     <path
         android:fillColor="#FFFFFF"
         android:fillAlpha="0.15"
@@ -17,7 +36,7 @@
     <path
         android:fillColor="#FF6B6B"
         android:pathData="M40,76 C44,80 50,82 54,82 C58,82 64,80 68,76 C62,80 56,82 54,82 C52,82 46,80 40,76 Z" />
-    <!-- 叶子 - 五角星形番茄萼片 -->
+    <!-- 叶子 -->
     <path
         android:fillColor="#34C759"
         android:pathData="M54,26 L52,18 L48,24 L42,16 L44,26 L38,20 L42,28 L54,26 Z" />
@@ -32,7 +51,7 @@
     <path
         android:fillColor="#1E7E34"
         android:pathData="M52,18 L56,18 L55,14 L53,14 Z" />
-    <!-- 整体白色描边（让番茄更有质感） -->
+    <!-- 白色描边 -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#FFFFFF"
