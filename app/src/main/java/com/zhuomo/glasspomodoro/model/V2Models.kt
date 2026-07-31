@@ -88,16 +88,3 @@ data class GlassSettings(
     val lightAngle: Float = 0.6f,       // 光影角度 0~1（映射 0°~360°）
     val showHighlight: Boolean = true   // 玻璃高光扫描
 )
-
-// ===== 模块E：GitHub 云能力 =====
-
-/** GitHub Token 状态 */
-enum class GitHubTokenState(val labelZh: String, val labelEn: String) {
-    NOT_CONFIGURED("未配置", "Not Configured"),
-    VERIFYING("验证中…", "Verifying…"),
-    VERIFIED("已验证", "Verified"),
-    INVALID("无效", "Invalid")
-}
-
-/** 首次启动设置 */
-data class FirstLaunchSettings(val isFirstLaunch: Boolean = true)

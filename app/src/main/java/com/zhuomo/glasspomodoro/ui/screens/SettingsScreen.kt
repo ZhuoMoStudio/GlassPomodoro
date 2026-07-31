@@ -1,7 +1,5 @@
 package com.zhuomo.glasspomodoro.ui.screens
 
-import android.content.Intent
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -9,7 +7,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,28 +24,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.zhuomo.glasspomodoro.data.remote.GitHubApiClient
-import com.zhuomo.glasspomodoro.data.remote.GitHubUser
-import com.zhuomo.glasspomodoro.data.repository.GitHubConfigState
 import com.zhuomo.glasspomodoro.data.repository.SettingsRepository
 import com.zhuomo.glasspomodoro.model.*
-import com.zhuomo.glasspomodoro.security.TokenCryptoStore
 import com.zhuomo.glasspomodoro.ui.components.icons.AppIcons
 import com.zhuomo.glasspomodoro.ui.theme.currentColorPreset
 import kotlinx.coroutines.launch
-import org.json.JSONObject
 import kotlin.math.abs
 
 @Composable
 fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit, isZh: Boolean = true) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     val clock by repository.clockSettings.collectAsState(initial = ClockDisplaySettings())
     val theme by repository.themeSettings.collectAsState(initial = ThemeSettings())
     val wallpaper by repository.wallpaperSettings.collectAsState(initial = WallpaperSettings())
@@ -61,17 +49,9 @@ fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit, isZh: Boo
     val priority by repository.wallpaperPriority.collectAsState(initial = WallpaperPrioritySettings())
     val glass by repository.glassSettings.collectAsState(initial = GlassSettings())
     val performance by repository.performanceProfile.collectAsState(initial = PerformanceProfile.BALANCED)
-    val githubConfig by repository.githubConfig.collectAsState(initial = GitHubConfigState())
     val preset = currentColorPreset(repository)
     val config = LocalConfiguration.current
     val isLandscape = config.screenWidthDp > config.screenHeightDp
-
-    val tokenStore = remember { TokenCryptoStore(context) }
-    val githubApi = remember { GitHubApiClient() }
-
-    // GitHub 对话框 & 备份状态
-    var showTokenDialog by remember { mutableStateOf(false) }
-    var backupState by remember { mutableStateOf("") } // "", uploading, ok, fail
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { scope.launch { repository.updateWallpaper(wallpaper.copy(source = WallpaperSource.LOCAL, localPath = it.toString())) } }
@@ -84,17 +64,6 @@ fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit, isZh: Boo
             val item = list.removeAt(idx)
             list.add(newIdx, item)
             scope.launch { repository.updateWallpaperPriority(WallpaperPrioritySettings(list)) }
-        }
-    }
-
-    fun backupConfig() {
-        val token = tokenStore.loadToken() ?: run { backupState = "fail"; return }
-        scope.launch {
-            backupState = "uploading"
-            val json = buildConfigJson(clock, theme, wallpaper, dimMask, clockFont, clockColors, fx, acoustic, priority, glass, performance)
-            val existing = githubApi.listGists(token).firstOrNull()
-            val id = githubApi.backupConfigToGist(token, existing, content = json)
-            backupState = if (id != null) "ok" else "fail"
         }
     }
 
@@ -239,34 +208,49 @@ fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit, isZh: Boo
 
             // ---------- 声学视觉（v2.0 模块A） ----------
             item { CollapsibleSection(title = if (isZh) "🌊 声学视觉" else "🌊 Acoustic Visual", accent = preset.accent1) {
-                // 波动模式
                 Text(if (isZh) "波动模式" else "Wave Mode", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {
                     WaveMode.entries.forEach { m ->
                         val sel = acoustic.mode == m
                         Box(Modifier.clip(RoundedCornerShape(8.dp)).background(if (sel) preset.primary.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.05f))
                             .clickable { scope.launch { repository.updateAcousticSettings(acoustic.copy(mode = m)) } }.padding(horizontal = 10.dp, vertical = 6.dp)) {
-                            Text(if (isZh) m.labelZh else m.labelEn, color = if (sel) Color.White else Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = when (m) {
+                                        WaveMode.PURE_RIPPLE -> AppIcons.IcRipple
+                                        WaveMode.BOTTOM_SPECTRUM -> AppIcons.IcSpectrum
+                                        WaveMode.HYBRID -> AppIcons.IcHybrid
+                                    },
+                                    contentDescription = null,
+                                    tint = if (sel) Color.White else Color.White.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(if (isZh) m.labelZh else m.labelEn, color = if (sel) Color.White else Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
+                            }
                         }
                     }
                 }
-                // 波源位置
                 Text(if (isZh) "波源位置" else "Source Position", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {
                     WaveSourcePosition.entries.forEach { pos ->
                         val sel = acoustic.sourcePosition == pos
                         Box(Modifier.clip(RoundedCornerShape(8.dp)).background(if (sel) preset.secondary.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.05f))
                             .clickable { scope.launch { repository.updateAcousticSettings(acoustic.copy(sourcePosition = pos)) } }.padding(horizontal = 10.dp, vertical = 6.dp)) {
-                            Text(if (isZh) pos.labelZh else pos.labelEn, color = if (sel) Color.White else Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (pos == WaveSourcePosition.CUSTOM) {
+                                    Icon(AppIcons.IcSource, null, tint = if (sel) Color.White else Color.White.copy(alpha = 0.5f), modifier = Modifier.size(14.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                }
+                                Text(if (isZh) pos.labelZh else pos.labelEn, color = if (sel) Color.White else Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
+                            }
                         }
                     }
                 }
-                // 自定义波源 X/Y
                 if (acoustic.sourcePosition == WaveSourcePosition.CUSTOM) {
                     DebouncedSliderRow(if (isZh) "X 坐标" else "X", acoustic.customSourceX, 0f, 1f) { scope.launch { repository.updateAcousticSettings(acoustic.copy(customSourceX = it)) } }
                     DebouncedSliderRow(if (isZh) "Y 坐标" else "Y", acoustic.customSourceY, 0f, 1f) { scope.launch { repository.updateAcousticSettings(acoustic.copy(customSourceY = it)) } }
                 }
-                // 参数滑块
                 DebouncedSliderRow(if (isZh) "振幅强度" else "Amplitude", acoustic.amplitudeStrength, 0.2f, 2f) { scope.launch { repository.updateAcousticSettings(acoustic.copy(amplitudeStrength = it)) } }
                 DebouncedSliderRow(if (isZh) "波速" else "Wave Speed", acoustic.waveSpeed, 0.3f, 3f) { scope.launch { repository.updateAcousticSettings(acoustic.copy(waveSpeed = it)) } }
                 DebouncedSliderRow(if (isZh) "衰减系数" else "Decay", acoustic.decay, 0.3f, 3f) { scope.launch { repository.updateAcousticSettings(acoustic.copy(decay = it)) } }
@@ -308,7 +292,11 @@ fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit, isZh: Boo
                         val sel = performance == p
                         Box(Modifier.clip(RoundedCornerShape(8.dp)).background(if (sel) preset.primary.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.05f))
                             .clickable { scope.launch { repository.updatePerformanceProfile(p) } }.padding(horizontal = 10.dp, vertical = 6.dp)) {
-                            Text(if (isZh) p.labelZh else p.labelEn, color = if (sel) Color.White else Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(AppIcons.IcPerformance, null, tint = if (sel) Color.White else Color.White.copy(alpha = 0.5f), modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(if (isZh) p.labelZh else p.labelEn, color = if (sel) Color.White else Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
+                            }
                         }
                     }
                 }
@@ -331,63 +319,6 @@ fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit, isZh: Boo
                     color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp, lineHeight = 18.sp)
             }
 
-            // ---------- GitHub（v2.0 模块E） ----------
-            item { CollapsibleSection(title = if (isZh) "☁️ GitHub 云能力" else "☁️ GitHub Cloud", accent = preset.accent2) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Icon(AppIcons.IcGithub, null, tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (isZh) "Token 状态" else "Token Status", color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp, modifier = Modifier.weight(1f))
-                    if (githubConfig.tokenConfigured) {
-                        Text("✅ ${if (isZh) "已验证" else "Verified"} @${githubConfig.username}",
-                            color = Color(0xFF51CF66), fontSize = 12.sp)
-                    } else {
-                        Text("❌ ${if (isZh) "未配置" else "Not configured"}",
-                            color = Color(0xFFFF6B6B), fontSize = 12.sp)
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = { showTokenDialog = true },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                        border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.3f))
-                    ) {
-                        Icon(AppIcons.IcKey, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(if (isZh) (if (githubConfig.tokenConfigured) "重新配置" else "配置 Token") else "Configure", fontSize = 12.sp)
-                    }
-                    OutlinedButton(
-                        onClick = { backupConfig() },
-                        enabled = githubConfig.tokenConfigured,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                        border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.3f))
-                    ) {
-                        Icon(AppIcons.IcCloudSync, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            when (backupState) {
-                                "uploading" -> if (isZh) "备份中…" else "Syncing…"
-                                "ok" -> if (isZh) "已备份 ✓" else "Backed up ✓"
-                                "fail" -> if (isZh) "备份失败" else "Failed"
-                                else -> if (isZh) "备份到 Gist" else "Backup"
-                            },
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-                if (githubConfig.tokenConfigured) {
-                    Spacer(Modifier.height(4.dp))
-                    TextButton(onClick = {
-                        tokenStore.clearToken()
-                        scope.launch { repository.clearGitHubConfig() }
-                    }) {
-                        Text(if (isZh) "清除 Token 并退出登录" else "Clear token & sign out", color = Color(0xFFFF6B6B), fontSize = 11.sp)
-                    }
-                }
-            } }
-
             // ---------- 语言 ----------
             item { SectionTitle(if (isZh) "语言" else "Language", preset.accent2) }
             item { Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -397,18 +328,6 @@ fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit, isZh: Boo
             } }
             item { Spacer(Modifier.height(40.dp)) }
         }
-    }
-
-    // Token 配置对话框
-    if (showTokenDialog) {
-        GitHubTokenDialog(
-            isZh = isZh,
-            onDismiss = { showTokenDialog = false },
-            onVerified = { user ->
-                showTokenDialog = false
-                scope.launch { repository.markGitHubConfigured(user.login, user.avatarUrl) }
-            }
-        )
     }
 }
 
@@ -482,153 +401,3 @@ private fun SliderRow(label: String, value: Float, min: Float, max: Float, onCha
         Text("%.2f".format(value), color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp, modifier = Modifier.width(40.dp))
     }
 }
-
-/** GitHub Token 配置对话框 */
-@Composable
-private fun GitHubTokenDialog(
-    isZh: Boolean,
-    onDismiss: () -> Unit,
-    onVerified: (GitHubUser) -> Unit
-) {
-    val api = remember { GitHubApiClient() }
-    val context = LocalContext.current
-    val tokenStore = remember { TokenCryptoStore(context) }
-    val scope = rememberCoroutineScope()
-    var input by remember { mutableStateOf("") }
-    var verifying by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = Color(0xFF16163A),
-        titleContentColor = Color.White,
-        textContentColor = Color.White.copy(alpha = 0.8f),
-        title = { Text(if (isZh) "配置 GitHub Token" else "Configure GitHub Token", fontSize = 16.sp) },
-        text = {
-            Column {
-                Text(if (isZh) "用于配置备份与云端同步（需 gist 权限）" else "For config backup & cloud sync (gist scope)",
-                    color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = { input = it; error = "" },
-                    placeholder = { Text("ghp_...", color = Color.White.copy(alpha = 0.3f)) },
-                    visualTransformation = PasswordVisualTransformation(),
-                    singleLine = true,
-                    textStyle = TextStyle(color = Color.White, fontSize = 13.sp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF6C63FF),
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
-                        focusedTextColor = Color.White,
-                        cursorColor = Color(0xFF6C63FF)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (error.isNotEmpty()) {
-                    Text(error, color = Color(0xFFFF6B6B), fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
-                }
-                TextButton(onClick = {
-                    try {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(GitHubApiClient.TOKEN_HELP_URL)))
-                    } catch (_: Exception) {}
-                }) {
-                    Text(if (isZh) "获取 Token →" else "Get a token →", color = Color(0xFF51CF66), fontSize = 12.sp)
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val token = input.trim()
-                    if (token.isEmpty()) {
-                        error = if (isZh) "请输入 Token" else "Enter token"
-                        return@Button
-                    }
-                    verifying = true
-                    scope.launch {
-                        val user = api.verifyToken(token)
-                        verifying = false
-                        if (user != null && user.login.isNotBlank()) {
-                            tokenStore.saveToken(token)
-                            onVerified(user)
-                        } else {
-                            error = if (isZh) "Token 无效或网络错误" else "Invalid token or network error"
-                        }
-                    }
-                },
-                enabled = !verifying,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6C63FF))
-            ) {
-                if (verifying) {
-                    CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
-                    Spacer(Modifier.width(6.dp))
-                }
-                Text(if (verifying) (if (isZh) "验证中…" else "Verifying…") else (if (isZh) "验证" else "Verify"), fontSize = 13.sp)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(if (isZh) "取消" else "Cancel", color = Color.White.copy(alpha = 0.6f))
-            }
-        }
-    )
-}
-
-/** 汇总所有设置 → JSON（用于 Gist 备份） */
-private fun buildConfigJson(
-    clock: ClockDisplaySettings,
-    theme: ThemeSettings,
-    wallpaper: WallpaperSettings,
-    dimMask: DimMaskSettings,
-    clockFont: ClockFont,
-    clockColors: ClockCustomColors,
-    fx: VisualEffectsSettings,
-    acoustic: AcousticSettings,
-    priority: WallpaperPrioritySettings,
-    glass: GlassSettings,
-    performance: PerformanceProfile
-): String = JSONObject().apply {
-    put("app", "GlassPomodoro")
-    put("version", "2.0")
-    put("exportTime", System.currentTimeMillis())
-    put("clock", JSONObject().apply {
-        put("showYear", clock.showYear); put("showDate", clock.showDate)
-        put("showWeekday", clock.showWeekday); put("showSeconds", clock.showSeconds)
-        put("use24Hour", clock.use24Hour)
-    })
-    put("theme", JSONObject().apply {
-        put("presetIndex", theme.presetIndex); put("isCustomColor", theme.isCustomColor)
-        put("customPrimary", theme.customPrimary); put("customSecondary", theme.customSecondary)
-        put("themeMode", theme.themeMode.name)
-    })
-    put("wallpaper", JSONObject().apply {
-        put("source", wallpaper.source.name); put("bingRegion", wallpaper.bingRegion)
-        put("blurAmount", wallpaper.blurAmount)
-    })
-    put("dimMask", JSONObject().apply {
-        put("style", dimMask.style.name); put("alpha", dimMask.customAlpha)
-        put("response", dimMask.dynamicResponse)
-    })
-    put("clockFont", clockFont.name)
-    put("clockColors", JSONObject().apply {
-        put("usePreset", clockColors.usePreset); put("customColor", clockColors.customColor)
-        put("customSecondary", clockColors.customSecondaryColor)
-    })
-    put("fx", JSONObject().apply {
-        put("ripple", fx.enableWaterRipple); put("waveform", fx.enableWaveform)
-        put("particles", fx.enableFluidParticles); put("waveAmp", fx.waveformAmplification)
-        put("rippleAmp", fx.rippleAmplification)
-    })
-    put("acoustic", JSONObject().apply {
-        put("mode", acoustic.mode.name); put("source", acoustic.sourcePosition.name)
-        put("sourceX", acoustic.customSourceX); put("sourceY", acoustic.customSourceY)
-        put("amplitude", acoustic.amplitudeStrength); put("speed", acoustic.waveSpeed)
-        put("decay", acoustic.decay)
-    })
-    put("wallpaperPriority", priority.order.joinToString(",") { it.name })
-    put("glass", JSONObject().apply {
-        put("blur", glass.blurStrength); put("lightAngle", glass.lightAngle)
-        put("highlight", glass.showHighlight)
-    })
-    put("performance", performance.name)
-}.toString()

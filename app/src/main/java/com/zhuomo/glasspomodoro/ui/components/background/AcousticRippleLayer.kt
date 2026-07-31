@@ -2,10 +2,10 @@ package com.zhuomo.glasspomodoro.ui.components.background
 
 import android.graphics.RuntimeShader
 import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -31,6 +31,7 @@ import kotlin.math.sqrt
  * 点波源径向水波，物理模型 A(d) = A0 × e^(-decay·d) × sin(ωt - k·d)
  * - Android 13+（API 33+）：AGSL RuntimeShader，GPU 实时渲染
  * - Android 7~12（API 24~32）：Canvas 兼容实现（同物理模型）
+ * - AGSL 编译失败或 uniform 异常时自动降级到 Canvas，绝不崩溃
  *
  * 三种显示模式：
  * - PURE_RIPPLE       纯水波（点波源同心涟漪）
@@ -55,9 +56,8 @@ fun AcousticRippleLayer(
 }
 
 // ============================================================
-// AGSL 路径（API 33+）
+// AGSL 路径（API 33+，失败自动降级 Canvas）
 // ============================================================
-@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
 private fun AgslRippleShader(
     spectrum: SpectrumData,
@@ -67,11 +67,27 @@ private fun AgslRippleShader(
     modifier: Modifier
 ) {
     val context = LocalContext.current
+    // AGSL 编译失败时标记降级，改用 Canvas 渲染（防崩溃兜底）
+    val agslFailed = remember { mutableStateOf(false) }
     val shader = remember {
-        val source = context.resources.openRawResource(R.raw.acoustic_ripple)
-            .bufferedReader().use { it.readText() }
-        RuntimeShader(source)
+        if (!agslFailed.value) {
+            try {
+                val source = context.resources.openRawResource(R.raw.acoustic_ripple)
+                    .bufferedReader().use { it.readText() }
+                RuntimeShader(source)
+            } catch (_: Throwable) {
+                agslFailed.value = true
+                null
+            }
+        } else null
     }
+
+    if (shader == null || agslFailed.value) {
+        // 降级：Canvas 兼容渲染（与 API<33 同一实现）
+        CanvasRippleFallback(spectrum, settings, Color(0xFF6C63FF), time, modifier)
+        return
+    }
+
     val brush = remember(shader) { ShaderBrush(shader) }
     val (sx, sy) = settings.sourcePoint()
     val mode = when (settings.mode) {
@@ -81,23 +97,27 @@ private fun AgslRippleShader(
     }
 
     Canvas(modifier = modifier.fillMaxSize()) {
-        shader.setFloatUniform("resolution", size.width, size.height)
-        shader.setFloatUniform("time", time * 0.001f)
-        shader.setFloatUniform("source", sx, sy)
-        shader.setFloatUniform("amplitude", settings.amplitudeStrength)
-        shader.setFloatUniform("speed", settings.waveSpeed)
-        shader.setFloatUniform("decay", settings.decay)
-        shader.setFloatUniform("lowBand", spectrum.low)
-        shader.setFloatUniform("midBand", spectrum.mid)
-        shader.setFloatUniform("highBand", spectrum.high)
-        shader.setFloatUniform("mode", mode)
-        shader.setFloatUniform("lightAngle", lightAngle)
-        drawRect(brush)
+        try {
+            shader.setFloatUniform("resolution", size.width, size.height)
+            shader.setFloatUniform("time", time * 0.001f)
+            shader.setFloatUniform("source", sx, sy)
+            shader.setFloatUniform("amplitude", settings.amplitudeStrength)
+            shader.setFloatUniform("speed", settings.waveSpeed)
+            shader.setFloatUniform("decay", settings.decay)
+            shader.setFloatUniform("lowBand", spectrum.low)
+            shader.setFloatUniform("midBand", spectrum.mid)
+            shader.setFloatUniform("highBand", spectrum.high)
+            shader.setFloatUniform("mode", mode)
+            shader.setFloatUniform("lightAngle", lightAngle)
+            drawRect(brush)
+        } catch (_: Throwable) {
+            // uniform 设置异常：静默跳过本帧（避免崩溃）
+        }
     }
 }
 
 // ============================================================
-// Canvas 兼容路径（API 24~32，同一物理模型）
+// Canvas 兼容路径（API 24~32 / AGSL 降级，同一物理模型）
 // ============================================================
 @Composable
 private fun CanvasRippleFallback(

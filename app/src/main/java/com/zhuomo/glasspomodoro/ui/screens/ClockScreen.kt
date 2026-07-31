@@ -6,28 +6,36 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.zhuomo.glasspomodoro.audio.WhiteNoisePlayer
 import com.zhuomo.glasspomodoro.data.repository.SettingsRepository
 import com.zhuomo.glasspomodoro.model.*
 import com.zhuomo.glasspomodoro.ui.components.background.*
+import com.zhuomo.glasspomodoro.ui.components.icons.AppIcons
 import com.zhuomo.glasspomodoro.ui.theme.currentColorPreset
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -51,7 +59,9 @@ fun ClockScreen(
     spectrum: SpectrumData,
     isMicActive: Boolean,
     albumArt: Bitmap?,
-    isZh: Boolean = true
+    isZh: Boolean = true,
+    nowPlayingTitle: String = "",
+    nowPlayingArtist: String = ""
 ) {
     val wallpaperSettings by repository.wallpaperSettings.collectAsState(initial = WallpaperSettings())
     val clockSet by repository.clockSettings.collectAsState(initial = ClockDisplaySettings())
@@ -140,12 +150,20 @@ fun ClockScreen(
         // ===== 玻璃层：光影模拟（高光扫描 + 光照旋转） =====
         GlassOverlayLayer(settings = glass, time = globalTime, accentColor = preset.primary)
 
-        // ===== 数字层：时钟文字（不受水波扰动） =====
+        // ===== 数字层：时钟文字（不受水波扰动，带玻璃投影） =====
+        val glassShadow = Shadow(
+            color = Color.Black.copy(alpha = 0.45f),
+            offset = Offset(0f, 3f),
+            blurRadius = 12f
+        )
         Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(String.format("%02d", hour), color = clockColor, fontSize = timeSize, fontWeight = fontWeight, fontFamily = fontFamily)
-                Text(":", color = Color.White.copy(alpha = 0.2f), fontSize = timeSize, fontWeight = fontWeight, fontFamily = fontFamily)
-                Text(String.format("%02d", rawDateTime.minute), color = clockColor, fontSize = timeSize, fontWeight = fontWeight, fontFamily = fontFamily)
+                Text(String.format("%02d", hour), color = clockColor, fontSize = timeSize, fontWeight = fontWeight, fontFamily = fontFamily,
+                    style = androidx.compose.ui.text.TextStyle(shadow = glassShadow))
+                Text(":", color = Color.White.copy(alpha = 0.2f), fontSize = timeSize, fontWeight = fontWeight, fontFamily = fontFamily,
+                    style = androidx.compose.ui.text.TextStyle(shadow = glassShadow))
+                Text(String.format("%02d", rawDateTime.minute), color = clockColor, fontSize = timeSize, fontWeight = fontWeight, fontFamily = fontFamily,
+                    style = androidx.compose.ui.text.TextStyle(shadow = glassShadow))
                 if (clockSet.showSeconds) {
                     Text(":" + String.format("%02d", rawDateTime.second), color = clockSecondaryColor.copy(alpha = 0.5f), fontSize = (timeSize.value * 0.35f).sp, fontWeight = fontWeight, fontFamily = fontFamily)
                 }
@@ -191,6 +209,36 @@ fun ClockScreen(
                         Spacer(Modifier.height(4.dp))
                         Text(if (isZh) "全部停止" else "Stop All", color = Color(0xFFFF6B6B), fontSize = 11.sp,
                             modifier = Modifier.fillMaxWidth().clickable(remember { MutableInteractionSource() }, null) { noisePlayer.stopAll(); activeNoiseTypes = emptyList() }.padding(4.dp), textAlign = TextAlign.Center)
+                    }
+                }
+            }
+
+            // ===== 迷你播放卡片（模块B：专辑封面联动） =====
+            if (nowPlayingTitle.isNotBlank()) {
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0x99000000))
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    if (albumArt != null) {
+                        Image(
+                            bitmap = albumArt.asImageBitmap(),
+                            contentDescription = null,
+                            modifier = Modifier.size(34.dp).clip(RoundedCornerShape(6.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Box(Modifier.size(34.dp).clip(RoundedCornerShape(6.dp)).background(Color(0x33FFFFFF)), contentAlignment = Alignment.Center) {
+                            Icon(AppIcons.IcMusic, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
+                        }
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Column(modifier = Modifier.widthIn(max = 160.dp)) {
+                        Text(nowPlayingTitle, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(nowPlayingArtist, color = Color.White.copy(alpha = 0.5f), fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
