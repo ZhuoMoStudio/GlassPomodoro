@@ -1,85 +1,75 @@
-# GlassPomodoro v2.0
+# GlassPomodoro v2.1.0
 
 🍅 横屏玻璃风格番茄时钟 — 物理级声学视觉引擎 + 专辑封面动态壁纸 + 玻璃质感沉浸体验
 
-> 从"好看的番茄时钟"升级为"综合型专注工具"：AGSL GPU 水波引擎、FFT 三频段驱动、专辑封面壁纸、玻璃拟态。
+> 从"好看的番茄时钟"升级为"综合型专注工具"：AGSL GPU 水波引擎、FFT 三频段驱动、专辑封面壁纸、玻璃拟态、开源音频合规。
 
-## ✨ v2.0 特性
+## ✨ v2.1.0 新特性
 
-### 🌊 物理级声学视觉引擎（模块A）
-- **点波源径向水波**：物理模型 `A(d) = A₀ × e^(-decay·d) × sin(ωt - k·d)`
-- **AGSL Shader 渲染**（Android 13+ GPU 实时计算，官方标准语法）/ **Canvas 兼容路径**（Android 7~12 同一物理模型，AGSL 异常自动降级）
-- **FFT 三频段映射**：低频→波幅、中频→波纹密度、高频→粒子闪烁
-- **三种显示模式**：纯水波 / 底部频谱 / 混合模式
-- **波源自定义**：中心 / 左下 / 右下 / 自定义 XY 坐标
-- **实时参数调节**：振幅强度、波速、衰减系数（滑块实时预览）
+### 🎧 音频可视化彻底修复（频响随声音振动）
+- **Visualizer 三通道自动切换**：
+  1. 附着内部白噪音 MediaPlayer 会话（100% 可靠，无需麦克风）
+  2. 附着系统输出混音（捕获外部音乐 App）
+  3. 麦克风 FFT 兜底（内置迭代 Cooley-Tukey FFT）
+- 播放/停止白噪音时频谱源动态切换，零延迟响应
 
-### 🎵 专辑封面动态壁纸（模块B）
-- 通过 `MediaSessionManager` 自动获取正在播放音乐的专辑封面
-- **壁纸源优先级**（可排序）：专辑封面 > Bing每日壁纸 > 本地相册 > 纯色背景
-- 源切换 **Crossfade** 平滑过渡，Coil 内存缓存避免重复解码
-- 专辑封面主色调提取（K-Means 聚类）
-- 时钟屏迷你播放卡片（封面+歌名+歌手实时显示）
+### 🎵 外部资源获取增强（专辑封面三级解析）
+- Bitmap → 封面 URI（content/file）→ MediaMetadataRetriever 嵌入式封面
+- 兼容 Spotify/网易云/QQ音乐/酷狗/酷我等 14+ 主流音乐 App
+- 专辑封面主色自动提取并应用到水波/波形/粒子（动态取色）
 
-### 🪟 玻璃质感（模块C）
-- **六种遮罩样式**：径向渐变 / 动态光晕 / 毛玻璃 / 科技网格 / **水波折射** / **景深模糊**
-- **景深分层**：背景层 → 水波层 → 玻璃层 → 数字层（时钟文字不受扰动，带玻璃投影）
-- **光影模拟**：随时间旋转的光照方向（与 AGSL Shader 联动）+ 顶部高光扫描
+### 🎨 动效设计升级
+- 波形双层辉光 + 圆角频谱柱 + 柱顶光点（参考 audio-visualizer 开源设计）
+- AGSL 副波源镜像涟漪（层次更丰富）
+- 时钟文字玻璃投影、迷你播放卡片
 
-### 🎨 SVG 图标系统（模块D）
-- 全量 `ImageVector` 矢量图标库（`Ic[模块][功能]` 命名规范）
-- 番茄三态动画图标（专注/休息/暂停）：呼吸脉冲 + AnimatedContent 过渡
-- v2.0 应用图标：番茄 + 声学波纹（adaptive icon + API 24 矢量回退）
+## ✨ v2.0 核心特性
 
-### 🔧 DevOps（模块F）
-- GitHub Actions：PR 自动构建（Debug）/ main 构建（Release+Artifact）/ Tag 自动发布 Release
-- 签名密钥通过仓库级 Secrets 注入（`KEYSTORE_FILE` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`）
-- 最低 SDK **API 24**（desugaring 支持 java.time）、目标 SDK 35
+### 🌊 物理级声学视觉引擎
+- **点波源径向水波**：`A(d) = A₀ × e^(-decay·d) × sin(ωt - k·d)`（AGSL 官方标准语法 + Canvas 兼容 + 异常自动降级）
+- **FFT 三频段映射**：低频→波幅、中频→波纹密度、高频→粒子
+- **三种显示模式**：纯水波 / 底部频谱 / 混合
+- **波源自定义** + 振幅/波速/衰减实时调节
+
+### 🪟 玻璃质感
+- 六种遮罩：径向渐变 / 动态光晕 / 毛玻璃 / 科技网格 / 水波折射 / 景深模糊
+- 景深分层渲染 + 光影旋转 + 高光扫描
+
+### 🔗 壁纸优先级
+专辑封面 > Bing每日壁纸 > 本地相册 > 纯色（可排序）
 
 ## 🛠 技术栈
 
-- Kotlin 100% + Jetpack Compose + Material 3
-- AGSL（Android Graphics Shading Language，API 33+，官方 vec4 main 标准语法）
-- ViewModel + StateFlow、DataStore、Room
-- Android Visualizer API（FFT 频谱）
-- Coil（壁纸加载）、OkHttp（Bing 壁纸 API）
-- Android Keystore System 生态
+Kotlin 100% + Jetpack Compose + Material 3 + AGSL（API 33+）
+ViewModel + StateFlow + DataStore + Room + Coil + OkHttp
+Android Visualizer API + 内置 FFT（Cooley-Tukey）
 
-## 📱 支持的 Android 版本
+## 📱 支持版本
 
 | 版本 | 渲染方式 |
 |------|----------|
-| Android 13+ (API 33+) | AGSL RuntimeShader GPU 渲染（失败自动降级 Canvas） |
-| Android 7~12 (API 24~32) | Canvas 兼容实现（同物理模型） |
+| Android 13+ (API 33+) | AGSL RuntimeShader GPU（失败自动降级） |
+| Android 7~12 (API 24~32) | Canvas 兼容实现 |
 
 ## 🏗 构建与发布
 
 ```bash
-# 本地构建
-./gradlew assembleDebug
-
-# 发布流程（GitHub Actions 自动完成）
-git tag v2.0.1
-git push origin v2.0.1
+./gradlew assembleDebug          # 本地
+git tag v2.1.0 && git push origin v2.1.0   # 自动构建+签名+发布
 ```
 
-CI 工作流（`.github/workflows/build.yml`）：
-- `pull_request` → `assembleDebug` 快速验证
-- `push main` → `assembleRelease` + Artifact 上传
-- `push tag v*` → `assembleRelease`（仓库级 Secrets 签名）+ GitHub Release 发布
-
-## 📦 开源依赖（许可证合规）
+## 📦 开源依赖与借鉴项目（许可证合规）
 
 | 项目 | 用途 | 许可证 |
 |------|------|--------|
 | [Jetpack Compose](https://developer.android.com/jetpack/compose) | UI 框架 | Apache-2.0 |
-| [Material Icons](https://github.com/google/material-design-icons) | 矢量图标 path 数据 | Apache-2.0 |
-| [Coil](https://github.com/coil-kt/coil) | 图片加载/缓存 | Apache-2.0 |
-| [OkHttp](https://github.com/square/okhttp) | 网络请求 | Apache-2.0 |
-| [Room](https://developer.android.com/jetpack/androidx/releases/room) | 本地数据库 | Apache-2.0 |
-| [DataStore](https://developer.android.com/topic/libraries/architecture/datastore) | 设置持久化 | Apache-2.0 |
-| [desugar_jdk_libs](https://github.com/google/desugar_jdk_libs) | java.time desugaring | GPL-2.0 with classpath exception |
-| 内置白噪音音频 | 雨/海浪/篝火/森林/溪流/白噪音 | CC0 |
+| [Material Icons](https://github.com/google/material-design-icons) | 矢量图标 | Apache-2.0 |
+| [CoverArt for Android](https://github.com/android/media-samples) (Google 示例) | 专辑封面三级解析思路 | Apache-2.0 |
+| [audio-visualizer-android](https://github.com/gauravk95/audio-visualizer-android) | 波形/频谱柱动效设计 | Apache-2.0 |
+| [Paperize](https://github.com/rajarsheechatterjee/paperize) | 动态壁纸取色思路 | MIT |
+| Coil / OkHttp / Room / DataStore | 基础组件 | Apache-2.0 |
+| desugar_jdk_libs | java.time desugaring | GPL-2.0+CPE |
+| 内置音频 | 6×CC0 白噪音 + 1×算法合成原创冥想音 | CC0 / Public Domain |
 
 ## 📜 开源协议
 

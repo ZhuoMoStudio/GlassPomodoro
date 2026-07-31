@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.zhuomo.glasspomodoro.audio.WhiteNoisePlayer
 import com.zhuomo.glasspomodoro.data.repository.SettingsRepository
+import com.zhuomo.glasspomodoro.media.AlbumArtColorExtractor
 import com.zhuomo.glasspomodoro.model.*
 import com.zhuomo.glasspomodoro.ui.components.background.*
 import com.zhuomo.glasspomodoro.ui.components.icons.AppIcons
@@ -98,6 +99,18 @@ fun ClockScreen(
     val effectiveAmp = if (isMicActive) amplitude else 0f
     val powerSave = performance == PerformanceProfile.POWER_SAVE
 
+    // ===== 专辑封面主色提取（借鉴 Paperize 动态取色设计） =====
+    // 播放音乐时，水波/波形/粒子自动采用专辑封面主色调
+    val colorExtractor = remember { AlbumArtColorExtractor() }
+    val albumAccent by remember(albumArt) {
+        mutableStateOf(
+            albumArt?.let {
+                colorExtractor.extractDominantColors(it, 1).firstOrNull()?.let { c -> Color(c.color) }
+            } ?: preset.primary
+        )
+    }
+    val waveAccent = if (albumArt != null) albumAccent else preset.primary
+
     // 白噪音
     val context = LocalContext.current
     val noisePlayer = remember { WhiteNoisePlayer(context) }
@@ -126,25 +139,25 @@ fun ClockScreen(
                 AcousticRippleLayer(
                     spectrum = spectrum,
                     settings = acoustic,
-                    accentColor = preset.primary,
+                    accentColor = waveAccent,
                     time = globalTime,
                     lightAngle = glass.lightAngle,
                     isActive = isMicActive
                 )
             } else {
-                WaterRippleBackground(amplitude = effectiveAmp, accentColor = preset.primary, isActive = isMicActive, amplification = fx.rippleAmplification)
+                WaterRippleBackground(amplitude = effectiveAmp, accentColor = waveAccent, isActive = isMicActive, amplification = fx.rippleAmplification)
             }
         }
 
         // ===== 水波层：流体粒子（省电模式关闭） =====
         if (fx.enableFluidParticles && !powerSave) {
-            FluidParticles(amplitude = effectiveAmp, colors = listOf(preset.primary, preset.secondary, preset.accent1), isActive = isMicActive, amplification = fx.waveformAmplification, time = globalTime)
+            FluidParticles(amplitude = effectiveAmp, colors = listOf(waveAccent, preset.secondary, preset.accent1), isActive = isMicActive, amplification = fx.waveformAmplification, time = globalTime)
         }
 
         // ===== 水波层：波形渲染（仅纯水波模式且开启波形时显示，避免与频谱柱重复） =====
         if (fx.enableWaveform && !powerSave && acoustic.mode == WaveMode.PURE_RIPPLE) {
             Box(Modifier.fillMaxSize().padding(bottom = 8.dp), contentAlignment = Alignment.BottomCenter) {
-                WaveformRenderer(amplitude = effectiveAmp, accentColor = preset.primary, isActive = isMicActive, amplification = fx.waveformAmplification)
+                WaveformRenderer(amplitude = effectiveAmp, accentColor = waveAccent, isActive = isMicActive, amplification = fx.waveformAmplification)
             }
         }
 

@@ -52,6 +52,9 @@ class AudioSpectrumAnalyzer(private val context: Context) {
     private val _spectrum = MutableStateFlow(SpectrumData.EMPTY)
     val spectrum: StateFlow<SpectrumData> = _spectrum.asStateFlow()
 
+    private var visualizer: Visualizer? = null
+    private var audioRecord: AudioRecord? = null
+
     @Volatile
     private var preferredSessionId: Int? = null
 

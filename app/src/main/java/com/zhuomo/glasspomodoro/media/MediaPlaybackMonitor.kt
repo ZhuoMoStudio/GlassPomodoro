@@ -3,11 +3,14 @@ package com.zhuomo.glasspomodoro.media
 import android.content.ComponentName
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.drawable.Drawable
 import android.media.MediaMetadata
+import android.media.MediaMetadataRetriever
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
+import android.net.Uri
 import android.os.Build
 import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.Dispatchers
@@ -81,21 +84,10 @@ class MediaPlaybackMonitor(private val context: Context) {
                         val artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
                         val album = metadata.getString(MediaMetadata.METADATA_KEY_ALBUM) ?: ""
 
-                        // 获取专辑封面
+                        // 获取专辑封面（v2.1.0 增强：Bitmap → URI → 嵌入式，参考 Google CoverArt 开源示例 Apache-2.0）
                         var albumArt: Bitmap? = null
                         try {
-                            // Android 10+ 使用 METADATA_KEY_ART
-                            val artDrawable = when {
-                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
-                                    val artIcon = metadata.getBitmap(MediaMetadata.METADATA_KEY_ART)
-                                    if (artIcon != null) artIcon
-                                    else metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
-                                }
-                                else -> metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
-                            }
-                            if (artDrawable != null) {
-                                albumArt = artDrawable
-                            }
+                            albumArt = resolveAlbumArt(metadata)
                         } catch (_: Exception) {}
 
                         val info = NowPlayingInfo(
@@ -136,6 +128,57 @@ class MediaPlaybackMonitor(private val context: Context) {
     fun setAlbumArt(bitmap: Bitmap) {
         val colors = colorExtractor.extractDominantColors(bitmap, maxColors = 6)
         _dominantColors.value = colors
+    }
+
+    /**
+     * 专辑封面解析（v2.1.0 增强，参考 Google CoverArt 开源示例，Apache-2.0）
+     *
+     * 三级策略，解决"外部音乐 App 封面获取不到"问题：
+     * 1. MediaMetadata 直接提供 Bitmap（部分 App 提供）
+     * 2. MediaMetadata 提供封面 URI（Spotify/网易云等主流 App 常用方式）
+     * 3. MediaMetadataRetriever 从媒体 URI 提取嵌入式封面（本地音乐文件）
+     */
+    private fun resolveAlbumArt(metadata: MediaMetadata): Bitmap? {
+        // 1. Bitmap 直接提供
+        val direct = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            metadata.getBitmap(MediaMetadata.METADATA_KEY_ART)
+                ?: metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
+        } else {
+            metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
+        }
+        if (direct != null) return direct
+
+        // 2. 封面 URI（content:// 或 file://）
+        val artUri = metadata.getString(MediaMetadata.METADATA_KEY_ALBUM_ART_URI)
+            ?: metadata.getString(MediaMetadata.METADATA_KEY_ART_URI)
+        if (!artUri.isNullOrBlank()) {
+            try {
+                val uri = Uri.parse(artUri)
+                val bmp = when (uri.scheme?.lowercase()) {
+                    "content" -> context.contentResolver.openInputStream(uri)?.use {
+                        BitmapFactory.decodeStream(it)
+                    }
+                    "file" -> BitmapFactory.decodeFile(uri.path)
+                    else -> null
+                }
+                if (bmp != null) return bmp
+            } catch (_: Exception) {}
+        }
+
+        // 3. 嵌入式封面（本地音乐文件）
+        val mediaUri = metadata.getString(MediaMetadata.METADATA_KEY_MEDIA_URI)
+        if (!mediaUri.isNullOrBlank()) {
+            try {
+                val retriever = MediaMetadataRetriever()
+                retriever.setDataSource(context, Uri.parse(mediaUri))
+                val bytes = retriever.embeddedPicture
+                retriever.release()
+                if (bytes != null) {
+                    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                }
+            } catch (_: Exception) {}
+        }
+        return null
     }
 
     fun stop() {

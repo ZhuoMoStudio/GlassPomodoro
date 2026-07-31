@@ -59,3 +59,15 @@ GlassPomodoro v2.0 incorporates the following open-source components:
    public-domain/MIT implementations. See LICENSE for details.
 
 All trademarks, service marks, and logos are the property of their respective owners.
+
+8. **CoverArt for Android (Google media-samples)** (Apache License 2.0)
+   Album art resolution strategy (Bitmap → URI → embedded) adapted
+   https://github.com/android/media-samples
+
+9. **audio-visualizer-android (gauravk95)** (Apache License 2.0)
+   Waveform glow & rounded spectrum bar design patterns
+   https://github.com/gauravk95/audio-visualizer-android
+
+10. **Paperize** (MIT License)
+   Dynamic wallpaper dominant-color extraction concept
+   https://github.com/rajarsheechatterjee/paperize

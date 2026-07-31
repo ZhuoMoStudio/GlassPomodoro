@@ -14,8 +14,8 @@ android {
         // v2.0: 最低 SDK 降至 API 24（Android 7.0），通过 desugaring 支持 java.time
         minSdk = 24
         targetSdk = 35
-        versionCode = 8
-        versionName = "2.0.0"
+        versionCode = 9
+        versionName = "2.1.0"
     }
 
     signingConfigs {

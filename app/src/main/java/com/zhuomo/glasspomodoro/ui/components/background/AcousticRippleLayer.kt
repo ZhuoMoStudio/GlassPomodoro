@@ -101,6 +101,7 @@ private fun AgslRippleShader(
             shader.setFloatUniform("resolution", size.width, size.height)
             shader.setFloatUniform("time", time * 0.001f)
             shader.setFloatUniform("source", sx, sy)
+            shader.setFloatUniform("secondSource", 1f - sx, sy)
             shader.setFloatUniform("amplitude", settings.amplitudeStrength)
             shader.setFloatUniform("speed", settings.waveSpeed)
             shader.setFloatUniform("decay", settings.decay)

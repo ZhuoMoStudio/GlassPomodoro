@@ -14,6 +14,7 @@
 // Uniform（由 Kotlin 侧 setFloatUniform 实时更新）:
 //   time       动画时间 (秒)
 //   source     波源归一化坐标 (0~1)
+//   secondSource 副波源（镜像涟漪，增强层次感）
 //   amplitude  振幅强度 (0.2~2.0)
 //   speed      波速 (0.3~3.0)
 //   decay      衰减系数 (0.3~3.0)
@@ -25,6 +26,7 @@
 uniform float2 resolution;
 uniform float time;
 uniform float2 source;
+uniform float2 secondSource;
 uniform float amplitude;
 uniform float speed;
 uniform float decay;
@@ -51,6 +53,13 @@ vec4 main(float2 fragCoord) {
     float wave = A0 * exp(-decay * dist) * sin(omega * time - k * dist);
     float envelope = exp(-decay * dist * 1.4);
     float intensity = wave * envelope * amplitude;
+
+    // ---- 副波源叠加（镜像涟漪，丰富层次） ----
+    float2 delta2 = (uv - secondSource) * float2(aspect, 1.0);
+    float dist2 = length(delta2);
+    float wave2 = A0 * 0.55 * exp(-decay * dist2 * 1.15) * sin(omega * time * 1.12 - k * 0.8 * dist2);
+    float intensity2 = wave2 * exp(-decay * dist2 * 1.5) * amplitude * 0.65;
+    intensity += intensity2;
 
     // ---- 涟漪双色渐变（紫→青→粉） ----
     vec3 c1 = vec3(0.42, 0.36, 1.0);
