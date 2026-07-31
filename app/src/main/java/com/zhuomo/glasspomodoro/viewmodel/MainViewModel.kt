@@ -61,6 +61,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * v2.0.2: 设置频谱分析器优先附着的音频会话（内置白噪音播放时传入其 AudioSessionId）
+     * 使应用内声音可视化 100% 可靠；null 时监听系统输出混音（外部音乐）
+     */
+    fun setActiveAudioSession(sessionId: Int?) {
+        spectrumAnalyzer.setPreferredSession(sessionId)
+    }
+
     fun startMediaMonitoring() {
         viewModelScope.launch {
             try {

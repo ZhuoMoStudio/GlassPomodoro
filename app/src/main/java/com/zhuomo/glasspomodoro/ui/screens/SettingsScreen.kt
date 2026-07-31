@@ -315,7 +315,7 @@ fun SettingsScreen(repository: SettingsRepository, onBack: () -> Unit, isZh: Boo
             // ---------- 白噪音 ----------
             item { SectionTitle(if (isZh) "🔊 白噪音" else "🔊 White Noise", preset.accent1) }
             item {
-                Text(if (isZh) "内置 6 种白噪音（雨/海浪/篝火/森林/溪流/白噪音）\n在时钟主屏点击左上角 🎵 按钮开启" else "6 built-in white noise tracks\nTap 🎵 on clock screen to play",
+                Text(if (isZh) "内置 7 种开源音轨（雨/海浪/篝火/森林/溪流/白噪音/冥想呼吸）\n在时钟主屏点击左上角 🎵 按钮开启" else "7 open-source tracks (Rain/Ocean/Fire/Forest/Stream/White/Breath)\nTap 🎵 on clock screen to play",
                     color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp, lineHeight = 18.sp)
             }
 

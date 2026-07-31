@@ -61,7 +61,8 @@ fun ClockScreen(
     albumArt: Bitmap?,
     isZh: Boolean = true,
     nowPlayingTitle: String = "",
-    nowPlayingArtist: String = ""
+    nowPlayingArtist: String = "",
+    onNoiseSessionChanged: (Int?) -> Unit = {}
 ) {
     val wallpaperSettings by repository.wallpaperSettings.collectAsState(initial = WallpaperSettings())
     val clockSet by repository.clockSettings.collectAsState(initial = ClockDisplaySettings())
@@ -100,9 +101,9 @@ fun ClockScreen(
     // 白噪音
     val context = LocalContext.current
     val noisePlayer = remember { WhiteNoisePlayer(context) }
-    val trackNames = listOf("rain","ocean","fire","forest","stream","whitenoise")
-    val trackLabels = if (isZh) listOf("雨声","海浪","篝火","森林","溪流","白噪音") else listOf("Rain","Ocean","Fire","Forest","Stream","White")
-    val trackIcons = listOf("🌧","🌊","🔥","🌲","💧","📡")
+    val trackNames = listOf("rain","ocean","fire","forest","stream","whitenoise","breath")
+    val trackLabels = if (isZh) listOf("雨声","海浪","篝火","森林","溪流","白噪音","冥想") else listOf("Rain","Ocean","Fire","Forest","Stream","White","Breath")
+    val trackIcons = listOf("🌧","🌊","🔥","🌲","💧","📡","🧘")
     var activeNoiseTypes by remember { mutableStateOf(emptyList<String>()) }
     var showNoisePanel by remember { mutableStateOf(false) }
 
@@ -196,8 +197,15 @@ fun ClockScreen(
                             .background(if (isOn) Color(0x3351CF66) else Color.Transparent)
                             .clickable(remember { MutableInteractionSource() }, null) {
                                 CoroutineScope(Dispatchers.Main).launch {
-                                    if (isOn) { noisePlayer.stop(name); activeNoiseTypes = activeNoiseTypes - name }
-                                    else { noisePlayer.play(name); activeNoiseTypes = activeNoiseTypes + name }
+                                    if (isOn) {
+                                        noisePlayer.stop(name)
+                                        activeNoiseTypes = activeNoiseTypes - name
+                                    } else {
+                                        noisePlayer.play(name)
+                                        activeNoiseTypes = activeNoiseTypes + name
+                                    }
+                                    // 同步频谱分析器的音频会话（内部声音可视化）
+                                    onNoiseSessionChanged(noisePlayer.getLastActiveSessionId())
                                 }
                             }.padding(horizontal = 8.dp, vertical = 5.dp)) {
                             Text(trackIcons[idx], fontSize = 16.sp); Spacer(Modifier.width(6.dp))
@@ -208,7 +216,11 @@ fun ClockScreen(
                     if (activeNoiseTypes.isNotEmpty()) {
                         Spacer(Modifier.height(4.dp))
                         Text(if (isZh) "全部停止" else "Stop All", color = Color(0xFFFF6B6B), fontSize = 11.sp,
-                            modifier = Modifier.fillMaxWidth().clickable(remember { MutableInteractionSource() }, null) { noisePlayer.stopAll(); activeNoiseTypes = emptyList() }.padding(4.dp), textAlign = TextAlign.Center)
+                            modifier = Modifier.fillMaxWidth().clickable(remember { MutableInteractionSource() }, null) {
+                                noisePlayer.stopAll()
+                                activeNoiseTypes = emptyList()
+                                onNoiseSessionChanged(null)
+                            }.padding(4.dp), textAlign = TextAlign.Center)
                     }
                 }
             }

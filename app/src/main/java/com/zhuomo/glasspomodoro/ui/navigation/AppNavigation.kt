@@ -66,7 +66,8 @@ fun AppNavigation(mainViewModel: MainViewModel = viewModel()) {
                             albumArt = nowPlaying.albumArtBitmap,
                             isZh = isZh,
                             nowPlayingTitle = nowPlaying.title,
-                            nowPlayingArtist = nowPlaying.artist
+                            nowPlayingArtist = nowPlaying.artist,
+                            onNoiseSessionChanged = { mainViewModel.setActiveAudioSession(it) }
                         )
                         AppMode.POMODORO -> {
                             pomodoroVM.updateAmplitude(amplitude)

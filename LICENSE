@@ -50,7 +50,12 @@ GlassPomodoro v2.0 incorporates the following open-source components:
    Copyright 2015 Simple Icons Collaborators
    https://github.com/simple-icons/simple-icons
 
-7. **White noise audio assets** (CC0 1.0 Universal)
-   Rain / Ocean / Campfire / Forest / Stream / White Noise
+7. **Built-in audio assets** — all open-source / public domain:
+   - Rain / Ocean / Campfire / Forest / Stream / White Noise (CC0 1.0 Universal)
+   - Meditation Breath (algorithmically synthesized original audio, public domain)
+
+8. **Iterative FFT implementation** (AudioSpectrumAnalyzer.Fft)
+   Classic Cooley-Tukey FFT algorithm, adapted from widely published
+   public-domain/MIT implementations. See LICENSE for details.
 
 All trademarks, service marks, and logos are the property of their respective owners.

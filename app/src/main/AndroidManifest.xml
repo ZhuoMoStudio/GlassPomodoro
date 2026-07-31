@@ -8,19 +8,34 @@
     <!-- 前台服务权限（Android 13+ 通知） -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- 网络权限（v2.0: Bing壁纸 + GitHub API + 云端备份） -->
+    <!-- 网络权限（Bing壁纸） -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- 查询正在播放的媒体应用（Android 11+ 需要） -->
+    <!-- 音频可视化：Visualizer 输出混音与麦克风 FFT 所需 -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <!-- 查询正在播放的媒体应用（Android 11+ 需要，v2.0.2 扩展覆盖主流音乐 App） -->
     <queries>
         <intent>
             <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MEDIA_BUTTON" />
         </intent>
         <package android:name="com.spotify.music" />
         <package android:name="com.apple.android.music" />
         <package android:name="com.netease.cloudmusic" />
         <package android:name="com.tencent.qqmusic" />
+        <package android:name="com.kugou.android" />
+        <package android:name="com.kuwo.kwmusicplayer" />
+        <package android:name="com.ximalaya.ting.android" />
+        <package android:name="com.douban.fm" />
+        <package android:name="com.miui.player" />
+        <package android:name="com.google.android.music" />
+        <package android:name="com.samsung.android.music" />
+        <package android:name="com.hihonor.music" />
+        <package android:name="com.oppo.music" />
         <package android:name="com.sina.weibo" />
     </queries>
 
